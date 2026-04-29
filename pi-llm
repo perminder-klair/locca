@@ -24,7 +24,7 @@ DEFAULT_THREADS="${DEFAULT_THREADS:-$(auto_threads)}"
 LLAMA_SERVER="${LLAMA_SERVER:-llama-server}"
 LLAMA_CLI="${LLAMA_CLI:-llama-cli}"
 LLAMA_BENCH="${LLAMA_BENCH:-llama-bench}"
-PI_SKILL_DIR="${PI_SKILL_DIR:-$HOME/.claude/skills/agent-browser}"
+PI_SKILL_DIR="${PI_SKILL_DIR:-}"
 
 RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
 PIDFILE="$RUNDIR/pi-llm-server.pid"
