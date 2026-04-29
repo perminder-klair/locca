@@ -1,34 +1,41 @@
 # pi-llm
 
-A `gum`-powered TUI around [llama.cpp](https://github.com/ggml-org/llama.cpp)
-for running, managing, and benchmarking local GGUF models — and launching the
+A TUI around [llama.cpp](https://github.com/ggml-org/llama.cpp) for running,
+managing, and benchmarking local GGUF models — and launching the
 [`pi`](https://pi.dev) coding agent against your local server.
 
 Tuned for AMD Strix Halo / Radeon 890M (Vulkan, q8_0 KV cache, single-slot
 serving), but works on any system where `llama-server` and `llama-cli` are on
-`$PATH`.
+`$PATH`. Linux + macOS.
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/perminder-klair/pi-llm.git
-cd pi-llm
-./install.sh
+npm install -g pi-llm
+pi-llm                # first run launches the setup wizard
 ```
 
-The installer:
+The wizard asks for:
 
-1. Bootstraps `gum` (via pacman if missing).
-2. Checks core deps (`bash curl jq python`) and offers `pacman -S` for any missing.
-3. Verifies `llama-server` / `llama-cli` are on `$PATH` (suggests official, AUR, or source builds).
-4. Reports optional tools (`rocm-smi`, `vulkaninfo`).
-5. Asks for the models directory (default `~/.lmstudio/models`, expands `~`, `mkdir -p` on confirm).
-6. Sets server defaults (port / ctx / threads — confirm or customize).
-7. Offers to install `pi` (default **yes**): tries `mise` → `npm` → `pacman -S nodejs-lts npm` → manual hint.
-8. Writes config to `~/.config/pi-llm/config`.
-9. Installs the binary: Arch package (`makepkg -si`) **or** symlink to `~/.local/bin/pi-llm`.
+1. Models directory (default `~/.lmstudio/models`, expands `~`, `mkdir -p` on confirm).
+2. Server defaults (port / ctx / threads — confirm or customize).
+3. Whether to install `pi` (default **yes**): tries `mise` → `npm` → manual hint.
 
-After install, run `pi-llm` for the interactive menu.
+It then writes `~/.config/pi-llm/config.json` and drops you at the menu.
+
+If `llama-server` isn't on `$PATH`, the wizard reports it with install hints
+(`pacman` / `brew` / source build) and you can fix that before running any of
+the inference commands.
+
+### Run from source (dev)
+
+```bash
+git clone https://github.com/perminder-klair/pi-llm.git
+cd pi-llm
+npm install
+npm run build
+npm link              # symlinks `pi-llm` into your PATH
+```
 
 ## Commands
 
@@ -41,11 +48,13 @@ pi-llm switch [model-pattern]   # stop current server, start a new model with pi
 pi-llm bench                    # run llama-bench against a model
 pi-llm status                   # list models + server status
 pi-llm info                     # GGUF metadata for a picked model
+pi-llm api                      # print OpenAI-compatible connection info
 pi-llm logs                     # tail server log (pi-started servers only)
 pi-llm download [user/repo]     # pull a GGUF from HuggingFace
 pi-llm search   [query]         # search HuggingFace for GGUF models
 pi-llm delete                   # remove a model directory
 pi-llm stop                     # stop the running server
+pi-llm setup                    # re-run the setup wizard
 pi-llm help                     # full command listing
 ```
 
@@ -60,10 +69,11 @@ pi-llm help                     # full command listing
 | `--cache-type-k q8_0 --cache-type-v q8_0` | Quantized KV cache (4× smaller than f16) |
 | `--parallel 1` | Full context goes to a single slot (no 4-way division) |
 | `--cache-reuse 256` | KV reuse across multi-turn requests |
+| `--batch-size 1024` | Larger prompt-processing batches (faster on iGPUs) |
 | `--jinja` | Proper chat template handling |
-| `--image-min-tokens 1024` | Auto-added when an `mmproj*.gguf` sibling is detected |
+| `--mmproj <file>` | Auto-added when an `mmproj*.gguf` sibling is detected |
 
-Per-model context auto-tuning (`ctx_for_model()`):
+Per-model context auto-tuning (`ctxForModel()` in `src/models.ts`):
 
 | Model class | Auto context |
 |---|---|
@@ -74,62 +84,85 @@ Per-model context auto-tuning (`ctx_for_model()`):
 | `*3B–8B*` | 131072 (128k) |
 | Other | 32768 (32k) |
 
-Edit `ctx_for_model()` in the script to tune for your VRAM budget.
+Edit `ctxForModel()` in `src/models.ts` to tune for your VRAM budget.
 
 ## File layout
 
 | Purpose | Path |
 |---|---|
-| Binary (pacman install) | `/usr/bin/pi-llm` |
-| Binary (symlink install) | `~/.local/bin/pi-llm` |
-| Config | `${XDG_CONFIG_HOME:-~/.config}/pi-llm/config` |
+| Binary | wherever `npm` puts globals (`npm prefix -g`/bin) |
+| Config | `${XDG_CONFIG_HOME:-~/.config}/pi-llm/config.json` |
 | Server PID | `${XDG_RUNTIME_DIR:-/tmp}/pi-llm-server.pid` |
 | Server log | `${XDG_RUNTIME_DIR:-/tmp}/pi-llm-server.log` |
 | Models dir (configurable) | `~/.lmstudio/models` (default) |
-| Downloaded GGUFs | `$MODELS_DIR/<repo>/` |
+| Downloaded GGUFs | `$modelsDir/<repo>/` |
 
-Runtime files live in `/run/user/$UID/` on Linux — wiped on reboot. That's intentional.
+On Linux, runtime files live in `/run/user/$UID/` and are wiped on reboot.
+That's intentional.
 
 ## Configuration
 
-`install.sh` writes `~/.config/pi-llm/config`. The script sources it at startup.
-Any value can be overridden:
+`pi-llm setup` writes `~/.config/pi-llm/config.json`. Edit by hand or re-run
+the wizard:
 
-```bash
-MODELS_DIR="$HOME/.lmstudio/models"
-DEFAULT_PORT=8080
-DEFAULT_CTX=32768
-DEFAULT_THREADS=10                  # auto-detected: nproc - 2
-LLAMA_SERVER="llama-server"
-LLAMA_CLI="llama-cli"
-LLAMA_BENCH="llama-bench"
-# PI_SKILL_DIR="$HOME/.claude/skills/agent-browser"  # optional pi --skill, no default
+```json
+{
+  "modelsDir": "/home/you/.lmstudio/models",
+  "defaultPort": 8080,
+  "defaultCtx": 32768,
+  "defaultThreads": 10,
+  "llamaServer": "llama-server",
+  "llamaCli": "llama-cli",
+  "llamaBench": "llama-bench",
+  "piSkillDir": "/home/you/.claude/skills/agent-browser",
+  "serverUrl": "http://localhost:8081"
+}
 ```
 
 Source builds: if the binaries aren't on `$PATH`, point them at absolute paths:
 
-```bash
-LLAMA_SERVER="$HOME/llama.cpp/build/bin/llama-server"
-LLAMA_CLI="$HOME/llama.cpp/build/bin/llama-cli"
-LLAMA_BENCH="$HOME/llama.cpp/build/bin/llama-bench"
+```json
+{
+  "llamaServer": "/home/you/llama.cpp/build/bin/llama-server",
+  "llamaCli":    "/home/you/llama.cpp/build/bin/llama-cli",
+  "llamaBench":  "/home/you/llama.cpp/build/bin/llama-bench"
+}
 ```
 
-Re-run `./install.sh` any time — it pre-fills your existing values.
+`piSkillDir` is optional — when set to an existing directory it's passed to `pi`
+as `--skill <dir>`.
+
+`serverUrl` is optional — when set, pi-llm uses an externally-managed
+llama.cpp server (e.g. a `docker compose` container, a server on another
+machine) instead of spawning its own. In that mode `serve`, `stop`, and
+`logs` are disabled (they don't make sense — the server isn't ours to
+manage). `pi`, `chat`, `bench`, etc. still work.
+
+Even without `serverUrl`, pi-llm probes the configured `defaultPort` at
+startup. If something already responds to `/health` (your compose container,
+a manually started llama-server, etc.), pi-llm marks it as **attached** and
+uses it instead of spawning a duplicate that would fight for VRAM.
+
+| Source | What it means | `serve`/`stop` allowed? |
+|---|---|---|
+| `pid` | pi-llm spawned this server | yes |
+| `external` | `serverUrl` is configured and reachable | no — manage where it was started |
+| `attached` | something else is on the local port | no — stop it via its launcher |
 
 ## Dependencies
 
 **Required**
 
-- `bash`, `gum`, `curl`, `jq`, `python`
-- `llama.cpp` — official Arch package, AUR variant, or source build:
-  - `sudo pacman -S llama.cpp`
-  - `yay -S llama.cpp-vulkan-git` (Vulkan / AMD)
-  - `yay -S llama.cpp-hip-git` (ROCm)
-  - source: <https://github.com/ggml-org/llama.cpp>
+- `node` ≥ 20
+- `llama.cpp` — install via your platform:
+  - Arch: `sudo pacman -S llama.cpp` · `yay -S llama.cpp-vulkan-git` · `yay -S llama.cpp-hip-git`
+  - macOS: `brew install llama.cpp`
+  - Anywhere else: build from source — <https://github.com/ggml-org/llama.cpp>
 
 **Optional**
 
-- `pi` ([pi.dev](https://pi.dev)) — required for the `pi-llm pi` subcommand. Install:
+- `pi` ([pi.dev](https://pi.dev)) — required for the `pi-llm pi` subcommand.
+  The setup wizard offers to install it for you, or:
   ```bash
   npm install -g @mariozechner/pi-coding-agent
   # or
@@ -140,34 +173,25 @@ Re-run `./install.sh` any time — it pre-fills your existing values.
 
 ## Updating
 
-If you installed via `makepkg -si` (binary at `/usr/bin/pi-llm`):
+```bash
+npm update -g pi-llm
+```
+
+Or, if installed from source via `npm link`:
 
 ```bash
-cd ~/Projects/pi-llm
+cd path/to/pi-llm
 git pull
-makepkg -si --force      # or bump pkgrel in PKGBUILD
-```
-
-If you installed via symlink (binary at `~/.local/bin/pi-llm`):
-
-```bash
-cd ~/Projects/pi-llm
-git pull                 # changes are live immediately
-```
-
-Check which one you have:
-
-```bash
-ls -la "$(command -v pi-llm)"   # arrow → symlink, regular file → pacman
+npm install
+npm run build
 ```
 
 ## Uninstall
 
 ```bash
-sudo pacman -R pi-llm                                   # if installed via package
-rm -f "$HOME/.local/bin/pi-llm"                         # if installed via symlink
+npm uninstall -g pi-llm
 rm -rf "$HOME/.config/pi-llm"                           # remove config (optional)
-rm -f /run/user/$UID/pi-llm-server.{pid,log}            # cleanup runtime cruft
+rm -f "${XDG_RUNTIME_DIR:-/tmp}/pi-llm-server."{pid,log}
 ```
 
 ## License

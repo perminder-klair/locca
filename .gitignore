@@ -1,11 +1,15 @@
-# makepkg build artifacts
-src/
-pkg/
-*.pkg.tar.zst
-*.pkg.tar.xz
-*.tar.gz
+# build output
+dist/
+node_modules/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
 
 # editor cruft
 *.swp
 *~
 .DS_Store
+.vscode/
+.idea/

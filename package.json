@@ -1,0 +1,47 @@
+{
+  "name": "pi-llm",
+  "version": "0.1.0",
+  "description": "TUI for managing local LLM inference with llama.cpp",
+  "type": "module",
+  "bin": {
+    "pi-llm": "./bin/pi-llm"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node bin/pi-llm",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "llama.cpp",
+    "llm",
+    "tui",
+    "cli",
+    "gguf",
+    "huggingface",
+    "pi"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/perminder-klair/pi-llm.git"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.8.2",
+    "@inquirer/search": "^3.0.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3"
+  }
+}
