@@ -93,11 +93,14 @@ export function findFirstMatch(models: Model[], pattern: string): Model | null {
 // Per-model context override — picked by name match.
 // MoE / hybrid-attention models tolerate big ctx (small per-token KV).
 // Dense models hit VRAM hard above ~32k.
+//
+// The size-class regexes use word-boundary-ish anchors so e.g. "Qwen3.5-9B"
+// doesn't accidentally match "32B". Order matters — bigger sizes first.
 export function ctxForModel(name: string): number {
   if (/A3B|MoE|moe/i.test(name)) return 131072;
-  if (/35B|32B|30B/.test(name)) return 65536;
-  if (/27B|24B|22B/.test(name)) return 32768;
-  if (/14B|13B|12B/.test(name)) return 65536;
-  if (/[348]B|7B/.test(name)) return 131072;
+  if (/(?<![0-9])(35B|32B|30B)(?![0-9])/.test(name)) return 65536;
+  if (/(?<![0-9])(27B|24B|22B)(?![0-9])/.test(name)) return 32768;
+  if (/(?<![0-9])(14B|13B|12B)(?![0-9])/.test(name)) return 65536;
+  if (/(?<![0-9])([3-9]B|7B)(?![0-9])/.test(name)) return 131072;
   return 32768;
 }
