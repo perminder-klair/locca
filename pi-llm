@@ -200,7 +200,7 @@ do_serve() {
 
     local mmproj=""
     mmproj=$(find "$model_dir" -maxdepth 1 -name "mmproj*" -name "*.gguf" 2>/dev/null | head -1)
-    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj --image-min-tokens 1024"
+    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj"
 
     local port=$DEFAULT_PORT ctx=$DEFAULT_CTX threads=$DEFAULT_THREADS
     local use_defaults
@@ -276,7 +276,7 @@ do_chat() {
 
     local mmproj=""
     mmproj=$(find "$model_dir" -maxdepth 1 -name "mmproj*" -name "*.gguf" 2>/dev/null | head -1)
-    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj --image-min-tokens 1024"
+    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj"
 
     echo ""
     gum style --foreground 212 "Starting chat with $model_name..."
@@ -608,7 +608,7 @@ do_pi() {
     local mmproj_args=""
     local mmproj=""
     mmproj=$(find "$model_dir" -maxdepth 1 -name "mmproj*" -name "*.gguf" 2>/dev/null | head -1)
-    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj --image-min-tokens 1024"
+    [[ -n "$mmproj" ]] && mmproj_args="--mmproj $mmproj"
 
     # Check if server is already running with this model
     if server_running; then
