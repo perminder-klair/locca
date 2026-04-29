@@ -54,11 +54,17 @@ require_llama() {
         cat >&2 <<EOF
 pi-llm: '$LLAMA_SERVER' not found in PATH.
 
-Install llama.cpp by one of:
-  sudo pacman -S llama.cpp                       # official Arch package
-  yay -S llama.cpp-vulkan-git                    # AUR (Vulkan / Radeon)
-  yay -S llama.cpp-hip-git                       # AUR (ROCm / HIP)
-  build from source: https://github.com/ggml-org/llama.cpp
+Install llama.cpp:
+  Arch:    sudo pacman -S llama.cpp
+           yay -S llama.cpp-vulkan-git           # AUR (Vulkan / Radeon)
+           yay -S llama.cpp-hip-git              # AUR (ROCm / HIP)
+  Other:   build from source — https://github.com/ggml-org/llama.cpp
+
+  Quick Vulkan build:
+    git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp
+    cmake -B ~/llama.cpp/build -S ~/llama.cpp -DGGML_VULKAN=ON
+    cmake --build ~/llama.cpp/build -j
+    export PATH="\$HOME/llama.cpp/build/bin:\$PATH"
 
 If you built from source, ensure llama-server/llama-cli are on \$PATH or
 set LLAMA_SERVER / LLAMA_CLI in ~/.config/pi-llm/config to absolute paths.

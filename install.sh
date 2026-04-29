@@ -1,6 +1,8 @@
 #!/bin/bash
 # pi-llm interactive installer
 # Bootstraps deps, asks for paths/defaults, writes config, installs the binary.
+# Works on Arch (pacman), Debian/Ubuntu (apt), Fedora/RHEL (dnf), openSUSE
+# (zypper), and Alpine (apk). Falls back to binary downloads where needed.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,23 +11,134 @@ CONFIG_FILE="$CONFIG_DIR/config"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-is_arch() { [[ -f /etc/arch-release ]] || have pacman; }
+# ── 0. Package-manager detection ───────────────────────────────────────
+PKG_MGR=unknown
+detect_pkg_mgr() {
+    if   have pacman;  then PKG_MGR=pacman
+    elif have apt-get; then PKG_MGR=apt
+    elif have dnf;     then PKG_MGR=dnf
+    elif have zypper;  then PKG_MGR=zypper
+    elif have apk;     then PKG_MGR=apk
+    fi
+}
+detect_pkg_mgr
+
+# Map a generic command name to the right package name for the active distro.
+# Most names are identical across distros; this only handles the exceptions.
+pkg_for() {
+    local cmd="$1"
+    case "$PKG_MGR:$cmd" in
+        pacman:python3) echo python ;;
+        dnf:python3)    echo python3 ;;
+        zypper:python3) echo python3 ;;
+        apt:python3)    echo python3 ;;
+        apk:python3)    echo python3 ;;
+        *)              echo "$cmd" ;;
+    esac
+}
+
+pkg_install() {
+    # Translate generic command names → packages, then run the installer.
+    local -a pkgs=()
+    local cmd
+    for cmd in "$@"; do pkgs+=("$(pkg_for "$cmd")"); done
+    case "$PKG_MGR" in
+        pacman) sudo pacman -S --needed "${pkgs[@]}" ;;
+        apt)    sudo apt-get update && sudo apt-get install -y "${pkgs[@]}" ;;
+        dnf)    sudo dnf install -y "${pkgs[@]}" ;;
+        zypper) sudo zypper install -y "${pkgs[@]}" ;;
+        apk)    sudo apk add "${pkgs[@]}" ;;
+        *) return 1 ;;
+    esac
+}
 
 # ── 1. Bootstrap gum (the rest of the installer uses gum) ──────────────
+install_gum_binary() {
+    # Universal fallback: download a release tarball from GitHub into
+    # ~/.local/bin. Works on any Linux with curl + tar.
+    have curl || { echo "curl is required to bootstrap gum. Install curl first."; exit 1; }
+    have tar  || { echo "tar is required to bootstrap gum. Install tar first.";  exit 1; }
+
+    local arch
+    case "$(uname -m)" in
+        x86_64|amd64)  arch=x86_64 ;;
+        aarch64|arm64) arch=arm64 ;;
+        armv7l|armv7)  arch=armv7 ;;
+        i386|i686)     arch=i386 ;;
+        *) echo "Unsupported arch $(uname -m). Install gum manually: https://github.com/charmbracelet/gum"; exit 1 ;;
+    esac
+
+    echo "Downloading latest gum release for Linux/${arch}..."
+    local tag
+    tag=$(curl -fsSL https://api.github.com/repos/charmbracelet/gum/releases/latest \
+          | grep -oE '"tag_name"[[:space:]]*:[[:space:]]*"[^"]+"' \
+          | head -1 | sed -E 's/.*"([^"]+)"$/\1/')
+    [[ -z "$tag" ]] && { echo "Could not determine latest gum release."; exit 1; }
+    local ver="${tag#v}"
+    local url="https://github.com/charmbracelet/gum/releases/download/${tag}/gum_${ver}_Linux_${arch}.tar.gz"
+
+    local tmp
+    tmp=$(mktemp -d)
+    curl -fsSL "$url" -o "$tmp/gum.tar.gz" || { echo "Download failed: $url"; rm -rf "$tmp"; exit 1; }
+    tar -xzf "$tmp/gum.tar.gz" -C "$tmp"
+
+    local bin
+    bin=$(find "$tmp" -type f -name gum -perm -u+x | head -1)
+    [[ -z "$bin" ]] && { echo "gum binary not found in archive."; rm -rf "$tmp"; exit 1; }
+
+    mkdir -p "$HOME/.local/bin"
+    install -m 0755 "$bin" "$HOME/.local/bin/gum"
+    rm -rf "$tmp"
+
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) echo "Note: $HOME/.local/bin is not in \$PATH — adding it for this session."
+           echo "      Add it to your shell rc to make gum permanently available."
+           export PATH="$HOME/.local/bin:$PATH" ;;
+    esac
+    echo "Installed gum to $HOME/.local/bin/gum"
+}
+
 ensure_gum() {
     have gum && return 0
     echo "pi-llm installer needs 'gum' for the interactive UI."
-    if is_arch; then
-        read -rp "Install gum via pacman now? [y/N] " ans
-        case "$ans" in
-            y|Y|yes) sudo pacman -S --needed gum ;;
-            *) echo "Aborting — install gum, then re-run."; exit 1 ;;
-        esac
-    else
-        echo "This installer is tuned for Arch Linux. Install gum manually:"
-        echo "  https://github.com/charmbracelet/gum"
+
+    # Distros that ship gum in their default repos: Arch, Alpine, Fedora 38+.
+    # Try the package manager first, then fall back to a binary download.
+    local tried_pkg=0
+    case "$PKG_MGR" in
+        pacman)
+            read -rp "Install gum via pacman? [Y/n] " ans
+            if [[ ! "$ans" =~ ^[Nn] ]]; then
+                tried_pkg=1
+                sudo pacman -S --needed gum && return 0 || true
+            fi
+            ;;
+        apk)
+            read -rp "Install gum via apk? [Y/n] " ans
+            if [[ ! "$ans" =~ ^[Nn] ]]; then
+                tried_pkg=1
+                sudo apk add gum && return 0 || true
+            fi
+            ;;
+        dnf)
+            read -rp "Try installing gum via dnf? (Fedora 38+ has it) [Y/n] " ans
+            if [[ ! "$ans" =~ ^[Nn] ]]; then
+                tried_pkg=1
+                sudo dnf install -y gum 2>/dev/null && return 0 || \
+                    echo "gum not available via dnf — falling back to binary download."
+            fi
+            ;;
+    esac
+
+    [[ $tried_pkg -eq 0 ]] && \
+        echo "No packaged gum on this distro — will download the binary release from GitHub."
+    read -rp "Download gum binary into ~/.local/bin? [Y/n] " ans
+    if [[ "$ans" =~ ^[Nn] ]]; then
+        echo "Aborting — install gum manually then re-run: https://github.com/charmbracelet/gum"
         exit 1
     fi
+    install_gum_binary
 }
 
 ensure_gum
@@ -44,47 +157,56 @@ warn()  { gum style --foreground 214 "! $*"; }
 err()   { gum style --foreground 196 "✗ $*"; }
 
 # ── 2. Dependency check ────────────────────────────────────────────────
-# Required (pacman-installable) deps for the TUI itself.
+# Required deps for the TUI itself.
 check_deps() {
     gum style --foreground 212 --bold "Checking core dependencies"
-    local -a missing_pkg=()
-    local -a missing_cmd=()
-
-    declare -A CMD_TO_PKG=(
-        [bash]=bash
-        [curl]=curl
-        [jq]=jq
-        [python3]=python
-    )
-
+    local -a missing=()
+    local cmd
     for cmd in bash curl jq python3; do
         if have "$cmd"; then
             ok "$cmd"
         else
-            missing_cmd+=("$cmd")
-            missing_pkg+=("${CMD_TO_PKG[$cmd]}")
+            missing+=("$cmd")
         fi
     done
 
-    if [[ ${#missing_cmd[@]} -eq 0 ]]; then
-        return 0
-    fi
+    [[ ${#missing[@]} -eq 0 ]] && return 0
 
-    warn "Missing: ${missing_cmd[*]}"
-    if ! is_arch; then
-        err "Not on Arch — install ${missing_pkg[*]} manually then re-run."
+    warn "Missing: ${missing[*]}"
+    if [[ "$PKG_MGR" == unknown ]]; then
+        err "No supported package manager detected. Install ${missing[*]} manually then re-run."
         exit 1
     fi
-    if gum confirm "Install via pacman: ${missing_pkg[*]}?"; then
-        sudo pacman -S --needed "${missing_pkg[@]}"
+    if gum confirm "Install via $PKG_MGR: ${missing[*]}?"; then
+        pkg_install "${missing[@]}"
     else
         err "Aborting — required dependencies missing."
         exit 1
     fi
 }
 
-# llama.cpp can come from the official repo, AUR variants, or a source build.
-# We only check that the binaries exist; we don't force a specific package.
+# llama.cpp can come from a distro package (Arch only, currently), AUR
+# variants, or a source build. We only check that the binaries exist.
+llamacpp_install_hint() {
+    case "$PKG_MGR" in
+        pacman)
+            note "  sudo pacman -S llama.cpp                # official Arch package"
+            note "  yay -S llama.cpp-vulkan-git             # AUR (Vulkan / Radeon)"
+            note "  yay -S llama.cpp-hip-git                # AUR (ROCm / HIP)"
+            ;;
+        *)
+            note "  No distro package on $PKG_MGR — build from source."
+            ;;
+    esac
+    note "  Source: https://github.com/ggml-org/llama.cpp"
+    note ""
+    note "  Quick build (Vulkan, AMD/Intel iGPU + most NVIDIA):"
+    note "    git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp"
+    note "    cmake -B ~/llama.cpp/build -S ~/llama.cpp -DGGML_VULKAN=ON"
+    note "    cmake --build ~/llama.cpp/build -j"
+    note "    export PATH=\"\$HOME/llama.cpp/build/bin:\$PATH\""
+}
+
 check_llamacpp() {
     gum style --foreground 212 --bold "llama.cpp"
     if have llama-server && have llama-cli; then
@@ -94,23 +216,20 @@ check_llamacpp() {
     fi
     warn "llama-server / llama-cli not found in PATH."
     note "Install one of:"
-    note "  sudo pacman -S llama.cpp                # official Arch package"
-    note "  yay -S llama.cpp-vulkan-git             # AUR (Vulkan / Radeon)"
-    note "  yay -S llama.cpp-hip-git                # AUR (ROCm / HIP)"
-    note "  build from source: https://github.com/ggml-org/llama.cpp"
+    llamacpp_install_hint
     note ""
     note "If you build from source, add the build/bin dir to PATH or set"
     note "LLAMA_SERVER / LLAMA_CLI to absolute paths in $CONFIG_FILE."
-    if is_arch && gum confirm --default=no "Try 'sudo pacman -S llama.cpp' now?"; then
+    if [[ "$PKG_MGR" == pacman ]] && gum confirm --default=no "Try 'sudo pacman -S llama.cpp' now?"; then
         sudo pacman -S --needed llama.cpp || warn "pacman install failed — install manually."
     fi
 }
 
-# ── 3. Optional deps (rocm-smi, vulkan-tools, gum already done) ────────
+# ── 3. Optional deps (rocm-smi, vulkan-tools) ──────────────────────────
 check_optional() {
     gum style --foreground 212 --bold "Optional tools"
-    have rocm-smi && ok "rocm-smi (AMD VRAM monitoring)" || note "rocm-smi missing (optional, AMD only)"
-    have vulkaninfo && ok "vulkaninfo" || note "vulkan-tools missing (optional)"
+    have rocm-smi   && ok "rocm-smi (AMD VRAM monitoring)" || note "rocm-smi missing (optional, AMD only)"
+    have vulkaninfo && ok "vulkaninfo"                     || note "vulkan-tools missing (optional)"
 }
 
 # ── 4. Models directory ────────────────────────────────────────────────
@@ -170,6 +289,17 @@ configure_server() {
 }
 
 # ── 6. Optional pi (coding agent) check ────────────────────────────────
+install_node_via_pkg_mgr() {
+    case "$PKG_MGR" in
+        pacman) sudo pacman -S --needed nodejs-lts npm ;;
+        apt)    sudo apt-get update && sudo apt-get install -y nodejs npm ;;
+        dnf)    sudo dnf install -y nodejs npm ;;
+        zypper) sudo zypper install -y nodejs npm ;;
+        apk)    sudo apk add nodejs npm ;;
+        *)      return 1 ;;
+    esac
+}
+
 check_pi() {
     gum style --foreground 212 --bold "pi (coding agent)"
     if have pi; then
@@ -203,15 +333,18 @@ check_pi() {
         warn "npm install failed (may need sudo or a Node version manager)."
     else
         warn "Neither mise nor npm found."
-        if is_arch && gum confirm --default=yes "Install nodejs-lts + npm via pacman?"; then
-            sudo pacman -S --needed nodejs-lts npm && \
-                npm install -g "$pkg" && \
-                ok "Installed pi via npm" && return 0
+        if [[ "$PKG_MGR" != unknown ]] && gum confirm --default=yes "Install nodejs + npm via $PKG_MGR?"; then
+            if install_node_via_pkg_mgr && npm install -g "$pkg"; then
+                ok "Installed pi via npm"
+                return 0
+            fi
+            warn "Install via $PKG_MGR failed."
         fi
     fi
 
     note "Manual install command:"
     note "  npm install -g $pkg"
+    note "On Debian/Ubuntu the system 'nodejs' may be too old — consider mise or NodeSource."
 }
 
 # ── 7. Write config file ───────────────────────────────────────────────
@@ -244,15 +377,16 @@ EOF
 # ── 8. Install the binary ──────────────────────────────────────────────
 install_binary() {
     gum style --foreground 212 --bold "Install pi-llm"
+    local -a opts=()
+    [[ "$PKG_MGR" == pacman ]] && opts+=("Build & install Arch package (makepkg -si)")
+    opts+=("Symlink to ~/.local/bin/pi-llm  (no root, dev-friendly)")
+    opts+=("Skip — I will install manually")
+
     local method
-    method=$(gum choose \
-        "Build & install Arch package (makepkg -si)" \
-        "Symlink to ~/.local/bin/pi-llm  (no root, dev-friendly)" \
-        "Skip — I will install manually")
+    method=$(gum choose "${opts[@]}")
 
     case "$method" in
         Build*)
-            if ! is_arch; then err "Not on Arch — pick symlink instead."; return; fi
             (cd "$REPO_DIR" && makepkg -si)
             ok "Installed via pacman."
             ;;
@@ -273,6 +407,8 @@ install_binary() {
 
 # ── main ───────────────────────────────────────────────────────────────
 banner
+note "Detected package manager: $PKG_MGR"
+echo ""
 check_deps
 echo ""
 check_llamacpp
