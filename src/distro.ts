@@ -156,6 +156,17 @@ export function llamaInstallHint(d: Distro = detectDistro()): LlamaInstallHint {
 }
 
 /**
+ * Best-effort guess at which shell rc file the user wants to append to.
+ * Reads $SHELL; falls back to bashrc.
+ */
+function shellRcGuess(): string {
+  const sh = process.env.SHELL ?? '';
+  if (sh.endsWith('/zsh')) return 'zshrc';
+  if (sh.endsWith('/fish')) return 'config/fish/config.fish';
+  return 'bashrc';
+}
+
+/**
  * Render a multi-line, copy-pasteable install hint for the current distro.
  * Used by `requireLlama` and the setup wizard.
  */
@@ -182,7 +193,10 @@ export function renderLlamaInstallHint(): string {
       `    cmake -B ~/llama.cpp/build -S ~/llama.cpp ${hint.cmakeBackend}`,
     );
     out.push('    cmake --build ~/llama.cpp/build -j');
-    out.push('    export PATH="$HOME/llama.cpp/build/bin:$PATH"');
+    out.push('    export PATH="$HOME/llama.cpp/build/bin:$PATH"        # this session');
+    out.push(
+      `    echo 'export PATH="$HOME/llama.cpp/build/bin:$PATH"' >> ~/.${shellRcGuess()}   # persist`,
+    );
     out.push('');
   } else {
     out.push('  Build from source: https://github.com/ggml-org/llama.cpp');
