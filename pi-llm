@@ -731,12 +731,12 @@ server_status
 echo ""
 
 ACTION=$(gum choose \
+    "Pi       — coding agent (local)" \
     "Serve    — start API server" \
     "Chat     — terminal chat" \
-    "Pi       — coding agent (local)" \
     "Switch   — swap server to a different model" \
-    "Bench    — benchmark a model" \
     "Status   — list models" \
+    "Bench    — benchmark a model" \
     "Info     — model details" \
     "Logs     — tail server log" \
     "Download — pull from HuggingFace" \
