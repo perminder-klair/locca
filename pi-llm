@@ -21,6 +21,23 @@ RUNDIR="${XDG_RUNTIME_DIR:-/tmp}"
 PIDFILE="$RUNDIR/pi-llm-server.pid"
 LOGFILE="$RUNDIR/pi-llm-server.log"
 
+require_pi() {
+    if ! command -v pi >/dev/null 2>&1; then
+        cat >&2 <<EOF
+pi-llm: 'pi' (coding agent) not found in PATH.
+
+The 'pi' subcommand requires the pi CLI. Install it with one of:
+  mise use -g npm:pi-cli
+  npm install -g pi-cli
+  see https://github.com/block/pi
+
+If you only want to serve/chat/bench, use those subcommands instead —
+they don't need pi.
+EOF
+        exit 1
+    fi
+}
+
 # Required only for serve/chat/pi/bench. Status/info/list don't need llama.cpp.
 require_llama() {
     if ! command -v "$LLAMA_SERVER" >/dev/null 2>&1; then
@@ -549,6 +566,7 @@ do_search() {
 }
 
 do_pi() {
+    require_pi
     require_llama
     local model_path=""
 
