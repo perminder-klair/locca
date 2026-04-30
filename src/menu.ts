@@ -1,21 +1,25 @@
 import * as p from '@clack/prompts';
+import { loadConfig } from './config.js';
 import { bench } from './commands/bench.js';
 import { config } from './commands/config.js';
 import { del } from './commands/delete.js';
+import { doctor } from './commands/doctor.js';
 import { download } from './commands/download.js';
 import { logs } from './commands/logs.js';
+import { optimise } from './commands/optimise.js';
 import { pi } from './commands/pi.js';
 import { searchHF } from './commands/search.js';
 import { serve } from './commands/serve.js';
-import { renderServerLine, status } from './commands/status.js';
 import { stop } from './commands/stop.js';
-import { MENU_BACK, exitIfCancelled, printBanner, setMenuMode } from './ui.js';
+import { serverStatus } from './server.js';
+import { MENU_BACK, exitIfCancelled, pc, printBanner, setMenuMode } from './ui.js';
 
 type Action =
   | 'pi'
   | 'serve'
   | 'switch'
-  | 'status'
+  | 'doctor'
+  | 'optimise'
   | 'bench'
   | 'logs'
   | 'download'
@@ -42,7 +46,8 @@ export async function menu(): Promise<void> {
         { value: 'serve', label: 'Serve    — start API server' },
         { value: 'stop', label: 'Stop     — stop server' },
         { value: 'switch', label: 'Switch   — swap server to a different model' },
-        { value: 'status', label: 'Status   — server / llama.cpp / models summary' },
+        { value: 'doctor', label: 'Doctor   — health check (hardware, server, log, config)' },
+        { value: 'optimise', label: 'Optimise — ask pi to review and suggest tweaks' },
         { value: 'bench', label: 'Bench    — benchmark a model' },
         { value: 'logs', label: 'Logs     — tail server log' },
         { value: 'download', label: 'Download — pull from HuggingFace' },
@@ -97,6 +102,30 @@ async function pauseUntilEnter(): Promise<void> {
   });
 }
 
+/**
+ * Compact one-line server summary, shown above the menu so the user sees
+ * what (if anything) is currently running before they pick an action.
+ */
+async function renderServerLine(): Promise<void> {
+  const cfg = loadConfig();
+  const s = await serverStatus(cfg);
+  if (!s.running) {
+    console.log(pc.dim('  ○ No server running'));
+    return;
+  }
+  const tag =
+    s.source === 'pid'
+      ? `pid ${s.pid}`
+      : s.source === 'external'
+        ? 'external'
+        : 'attached';
+  const bits: string[] = [];
+  if (s.model) bits.push(s.model);
+  bits.push(s.url);
+  bits.push(tag);
+  console.log(pc.green(`  ● Running: ${bits.join(', ')}`));
+}
+
 function isCancelLike(e: unknown): boolean {
   if (e === MENU_BACK) return true;
   // @inquirer/search and friends throw ExitPromptError on Esc / Ctrl-C.
@@ -117,8 +146,11 @@ async function runAction(action: Exclude<Action, 'quit'>): Promise<void> {
     case 'switch':
       await pi([], { stopFirst: true });
       break;
-    case 'status':
-      await status();
+    case 'doctor':
+      await doctor();
+      break;
+    case 'optimise':
+      await optimise();
       break;
     case 'bench':
       await bench();

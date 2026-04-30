@@ -55,17 +55,46 @@ locca serve                    # start llama-server with a picked model (detache
 locca switch [model-pattern]   # stop current server, start a new model with pi
 locca bench                    # run llama-bench against a model
 locca status                   # server / llama.cpp / models summary
+locca doctor                   # health check: hardware, llama.cpp, server, log, config
+locca optimise                 # ask pi to review the deployment and suggest tweaks
 locca api                      # print OpenAI-compatible connection info
 locca logs                     # tail server log (pi-started servers only)
 locca download [user/repo]     # pull a GGUF from HuggingFace
 locca search   [query]         # search HuggingFace for GGUF models
 locca delete                   # remove a model directory
 locca stop                     # stop the running server
+locca config [get|set|reset|list|path]   # view / edit ~/.locca/config.json
 locca setup                    # re-run the setup wizard
 locca help                     # full command listing
 ```
 
 `locca pi qwen` will fuzzy-match the first `*qwen*.gguf` in your models dir.
+
+## Health checks — `locca doctor` & `locca optimise`
+
+`locca doctor` runs a read-only sweep and prints what it finds:
+
+- **Hardware** — CPU count, total/free RAM, GPUs (probed via `nvidia-smi`,
+  `rocm-smi`, `vulkaninfo`, or `system_profiler` on macOS) with VRAM totals
+  where vendor tools expose them.
+- **llama.cpp** — resolved binary path and `--version` banner.
+- **Server** — running state (none / `pid` / `external` / `attached`), live
+  `n_ctx` and `n_ctx_train` from `/props`.
+- **Models** — count and total size in `modelsDir`.
+- **pi** — installed? `~/.pi/agent/models.json` present? `locca` provider
+  registered?
+- **Server log** — scans the last 64 KiB for known patterns: outdated chat
+  templates, jinja render failures, OOMs, context truncation, `cache_reuse`
+  fall-backs, speculative-decoding warnings.
+- **Findings** — info / warning / error rows with concrete suggestions
+  (e.g. *"defaultThreads (16) > cpu count (12) — drop to 10"*).
+
+`locca optimise` (alias `optimize`) bundles the same data into a markdown
+prompt and pipes it to **pi** running against your local model — it'll
+spin up a small model from `modelsDir` if nothing's serving, then ask pi
+to call out the biggest issue and rank 3–5 concrete tweaks. Useful when
+the heuristics in `doctor` aren't enough and you want a model to look at
+the whole picture.
 
 ## Connection info — `locca api`
 
@@ -109,7 +138,8 @@ Per-model context auto-tuning (`ctxForModel()` in `src/models.ts`):
 
 Edit `ctxForModel()` in `src/models.ts` to tune for your VRAM budget. Bigger
 ctx = larger KV cache = more VRAM. q8_0 KV cache is what makes 128k feasible
-on a shared-VRAM iGPU.
+on a shared-VRAM iGPU. Set `vramBudgetMB` in your config (see below) to cap
+the auto-pick to a smaller tier without hand-editing the regex.
 
 Sampling parameters (temperature, top_p, etc.) are read from the **GGUF
 metadata** when `--jinja` is on — locca doesn't override. Verify what your
@@ -167,8 +197,8 @@ a duplicate.
 
 ## Configuration
 
-`locca setup` writes `~/.locca/config.json`. Edit by hand or re-run
-the wizard:
+`locca setup` writes `~/.locca/config.json`. Edit it via the `locca config`
+command, by hand, or re-run the wizard:
 
 ```json
 {
@@ -180,7 +210,11 @@ the wizard:
   "llamaCli": "llama-cli",
   "llamaBench": "llama-bench",
   "piSkillDir": "/home/you/.claude/skills/agent-browser",
-  "serverUrl": "http://localhost:8081"
+  "piSkills": false,
+  "piExtensions": false,
+  "piContextFiles": false,
+  "serverUrl": "http://localhost:8081",
+  "vramBudgetMB": 16384
 }
 ```
 
@@ -197,16 +231,53 @@ Source builds: if the binaries aren't on `$PATH`, point them at absolute paths:
 `piSkillDir` is optional — when set to an existing directory it's passed to
 `pi` as `--skill <dir>`.
 
+`piSkills` / `piExtensions` / `piContextFiles` (all default `false`) flip
+pi's built-in skill dispatch, extensions, and `AGENTS.md` / `CLAUDE.md`
+context-file discovery on or off. The defaults are off so small local models
+aren't blown out by skills or large project instruction files; turn them on
+if you want pi's full project-aware surface against a capable model.
+
 `serverUrl` is optional — when set, locca uses an externally-managed
 llama.cpp server (one you started yourself, or one running on another machine
 on your LAN) instead of spawning its own. In that mode `serve`, `stop`, and
 `logs` are disabled (they don't make sense — the server isn't ours to
 manage). `pi`, `bench`, etc. still work.
 
+`vramBudgetMB` is optional — an approximate VRAM hint (in MB) that caps the
+context window `ctxForModel()` will auto-pick. Without it, big models
+default to 128k ctx and may OOM at load time on smaller GPUs. The cap is
+tier-based:
+
+| `vramBudgetMB` | Auto-ctx ceiling |
+|---|---|
+| ≤ 6 GB | 8 192 |
+| ≤ 8 GB | 16 384 |
+| ≤ 12 GB | 32 768 |
+| ≤ 16 GB | 65 536 |
+| > 16 GB | 131 072 |
+
+It does **not** override an explicit `defaultCtx` or a ctx you type into
+`locca serve`. `locca doctor` will detect your GPU's reported VRAM and
+suggest a value if it's unset.
+
 Even without `serverUrl`, locca probes the configured `defaultPort` at
 startup. If something already responds to `/health` (a llama-server you
 started outside locca), locca marks it as **attached** (see the source
 taxonomy above) and uses it instead of spawning a duplicate.
+
+### Editing config — `locca config`
+
+```bash
+locca config              # interactive picker — view & edit any key
+locca config list         # print every key + current value
+locca config get  <key>   # print one value
+locca config set  <key> <value>   # update one key
+locca config reset <key>  # remove the key, fall back to defaults
+locca config path         # print the path to config.json
+```
+
+Empty values clear optional keys (e.g. `locca config set serverUrl ""`
+removes the override and falls back to local mode).
 
 ## Bundled skill (Claude Code / agent-aware editors)
 

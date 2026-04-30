@@ -17,10 +17,13 @@ Inference:
   api         Print OpenAI-compatible connection info
 
 Models:
-  status      Server / llama.cpp / models summary
   download    Download model from HuggingFace
   search      Search HuggingFace for GGUF models
   delete      Delete a model
+
+Health:
+  doctor      Health check: hardware, llama.cpp, server, models, log, config
+  optimise    Have pi review the deployment and suggest tweaks (uses local model)
 
 Setup:
   setup       Run the interactive setup wizard
@@ -73,12 +76,6 @@ async function dispatch(): Promise<void> {
       await m.stop();
       return;
     }
-    case 'status':
-    case 'ls': {
-      const m = await import('./commands/status.js');
-      await m.status();
-      return;
-    }
     case 'logs':
     case 'log': {
       const m = await import('./commands/logs.js');
@@ -116,6 +113,17 @@ async function dispatch(): Promise<void> {
     case 'config': {
       const m = await import('./commands/config.js');
       await m.config(rest);
+      return;
+    }
+    case 'doctor': {
+      const m = await import('./commands/doctor.js');
+      await m.doctor();
+      return;
+    }
+    case 'optimise':
+    case 'optimize': {
+      const m = await import('./commands/optimise.js');
+      await m.optimise();
       return;
     }
     default:
