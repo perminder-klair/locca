@@ -26,9 +26,9 @@ Every command that needs an LLM calls `serverStatus(cfg)`, which classifies the 
 | `external` | `cfg.serverUrl` is set and reachable                     | no               |
 | `attached` | No PIDFILE, but `/health` responds on `cfg.defaultPort`  | no               |
 
-`attached` is the "docker compose container or manual `llama-server` is already on the port" case — pi-llm uses it but refuses to manage it. `stop`/`serve`/`logs` short-circuit when source is `external` or `attached`.
+`attached` is the "a `llama-server` started outside pi-llm (by hand, another supervisor, another tool) is already on the port" case — pi-llm uses it but refuses to manage it. `stop`/`serve`/`logs` short-circuit when source is `external` or `attached`.
 
-`refuseIfPortTaken()` (`src/preflight.ts`) runs *after* `serverStatus()` and only fires when the port is occupied by something that does **not** answer `/health` — i.e. a non-llama squatter (qBittorrent, Jupyter…). Don't reorder these: `serverStatus` must run first so the "attached" case isn't misreported as a conflict.
+`refuseIfPortTaken()` (`src/preflight.ts`) runs *after* `serverStatus()` and only fires when the port is occupied by something that does **not** answer `/health` — i.e. a non-llama service. Don't reorder these: `serverStatus` must run first so the "attached" case isn't misreported as a conflict.
 
 `buildServerArgs()` bakes in flags tuned for AMD Strix Halo / Radeon 890M (Vulkan, `--n-gpu-layers 999`, `--flash-attn on`, q8_0 KV cache, `--parallel 1`, `--cache-reuse 256`, `--batch-size 1024`, `--jinja`). If a sibling `mmproj*.gguf` is detected, `--mmproj` is auto-injected.
 
