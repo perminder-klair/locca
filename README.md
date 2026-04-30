@@ -131,15 +131,15 @@ Source builds: if the binaries aren't on `$PATH`, point them at absolute paths:
 as `--skill <dir>`.
 
 `serverUrl` is optional — when set, pi-llm uses an externally-managed
-llama.cpp server (e.g. a `docker compose` container, a server on another
-machine) instead of spawning its own. In that mode `serve`, `stop`, and
-`logs` are disabled (they don't make sense — the server isn't ours to
-manage). `pi`, `chat`, `bench`, etc. still work.
+llama.cpp server (e.g. one you started yourself, or one running on another
+machine on your LAN) instead of spawning its own. In that mode `serve`,
+`stop`, and `logs` are disabled (they don't make sense — the server isn't
+ours to manage). `pi`, `bench`, etc. still work.
 
 Even without `serverUrl`, pi-llm probes the configured `defaultPort` at
-startup. If something already responds to `/health` (your compose container,
-a manually started llama-server, etc.), pi-llm marks it as **attached** and
-uses it instead of spawning a duplicate that would fight for VRAM.
+startup. If something already responds to `/health` (a llama-server you
+started outside pi-llm, etc.), pi-llm marks it as **attached** and uses
+it instead of spawning a duplicate that would fight for VRAM.
 
 | Source | What it means | `serve`/`stop` allowed? |
 |---|---|---|

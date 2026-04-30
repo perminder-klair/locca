@@ -22,8 +22,9 @@ export function isAlive(pid: number): boolean {
  * `pid`      — pi-llm spawned this server (we own its lifecycle).
  * `external` — config.serverUrl is set; an externally-managed server.
  * `attached` — no PIDFILE, but something's responding on the local default
- *              port. Could be a docker container, a manually started
- *              llama-server, etc. We can use it but won't try to stop it.
+ *              port. Could be a llama-server started by hand, by a
+ *              supervisor, or by another tool. We can use it but won't
+ *              try to stop it.
  */
 export type ServerSource = 'pid' | 'external' | 'attached';
 
@@ -181,7 +182,8 @@ export async function serverStatus(cfg: Config): Promise<ServerStatus> {
     }
   }
 
-  // Maybe something's already on our default port (docker container, etc).
+  // Maybe something's already on our default port (a llama-server started
+  // outside pi-llm — by hand, by a supervisor, by another tool).
   const localUrl = `http://127.0.0.1:${cfg.defaultPort}`;
   const probe = await probeServer(localUrl, 600);
   if (probe.alive) {
@@ -229,7 +231,7 @@ export async function stopServer(cfg: Config): Promise<StopResult> {
   if (s.source === 'attached') {
     return {
       stopped: false,
-      reason: `server at ${s.url} wasn't started by pi-llm — stop it via its original launcher (docker compose, etc.)`,
+      reason: `server at ${s.url} wasn't started by pi-llm — stop it via whatever started it`,
     };
   }
   if (s.pid) {
@@ -320,8 +322,7 @@ export function launchServer(opts: ServeOpts): ChildProcess {
  * Why /health and not /v1/models: /health flips green as soon as the HTTP
  * listener binds, which on big models is 10–30s before weights finish
  * loading. /v1/models only answers post-load, which made waitReady time out
- * spuriously. /health is the canonical liveness probe (matches the docker
- * healthcheck pattern).
+ * spuriously. /health is the canonical HTTP liveness probe.
  */
 export async function waitReady(port: number, timeoutSec = 60): Promise<boolean> {
   const url = `http://127.0.0.1:${port}/health`;

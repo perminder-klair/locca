@@ -24,7 +24,7 @@ export async function serve(): Promise<void> {
   if (status.running) {
     if (status.source === 'attached') {
       p.log.error(
-        `Something is already responding on port ${status.port} (${status.url}) — pi-llm did not start it. Stop it via its original launcher (e.g. \`docker compose down\`) before running \`pi-llm serve\`.`,
+        `Something is already responding on port ${status.port} (${status.url}) — pi-llm did not start it. Stop it via whatever started it before running \`pi-llm serve\`.`,
       );
       process.exit(1);
     }

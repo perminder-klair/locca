@@ -64,8 +64,9 @@ export interface ExternalAddresses {
  * Tailscale detection: interface name (`tailscale*`) on Linux/Windows, plus
  * the 100.64.0.0/10 CGNAT range that catches macOS's `utunN` interfaces.
  *
- * Skipped: docker / podman / virtual bridges / VPN tunnels we don't
- * recognise — these usually aren't useful for clients to connect to.
+ * Skipped: container-bridge and virtual interfaces (docker0, podman, lxc,
+ * br-*, veth*, virbr*, vmnet*, wg* …) — these aren't reachable from
+ * outside the host so advertising their IPs as LAN URLs would confuse.
  */
 export function networkAddresses(): ExternalAddresses {
   const skip = /^(docker|br-|podman|veth|cni|virbr|flannel|vmnet|lxc|lxdbr|wg)/;

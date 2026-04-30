@@ -8,10 +8,10 @@ export interface Config {
   llamaBench: string;
   piSkillDir?: string;
   /**
-   * Optional URL of an externally-managed llama.cpp server (e.g. a Docker
-   * compose container on a different port, or a llama-server on another
-   * machine). When set, pi-llm uses this URL instead of spawning its own
-   * server. Commands like `serve`, `stop`, `logs` are disabled in this mode.
+   * Optional URL of an externally-managed llama.cpp server (e.g. one you
+   * started yourself, or one on another machine on your LAN). When set,
+   * pi-llm uses this URL instead of spawning its own server. Commands
+   * like `serve`, `stop`, `logs` are disabled in this mode.
    */
   serverUrl?: string;
 }

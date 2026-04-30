@@ -82,7 +82,7 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
   }
 
   if (status.running && status.source === 'attached') {
-    // Something else (docker, manual launch) is on our default port.
+    // Something else (manual launch, another tool) is on our default port.
     // We don't know what model it's serving — use whatever it reports — but
     // we also can't switch its model. Tell the user what's happening.
     const servedModel = status.model ?? 'unknown';

@@ -60,7 +60,7 @@ export async function runSetup(): Promise<void> {
       {
         value: 'external',
         label: 'External — pi-llm connects to a server you already run',
-        hint: 'e.g. a docker compose container, another machine on your LAN',
+        hint: 'e.g. another machine on your LAN, or a server you start yourself',
       },
     ],
   });
