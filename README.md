@@ -42,12 +42,10 @@ npm link              # symlinks `pi-llm` into your PATH
 ```
 pi-llm                          # interactive menu (Pi is default)
 pi-llm pi [model-pattern]       # launch pi coding agent against a local server
-pi-llm serve                    # start llama-server with a picked model
-pi-llm chat                     # interactive terminal chat (llama-cli)
+pi-llm serve                    # start llama-server with a picked model (detached)
 pi-llm switch [model-pattern]   # stop current server, start a new model with pi
 pi-llm bench                    # run llama-bench against a model
-pi-llm status                   # list models + server status
-pi-llm info                     # GGUF metadata for a picked model
+pi-llm status                   # server / llama.cpp / models summary
 pi-llm api                      # print OpenAI-compatible connection info
 pi-llm logs                     # tail server log (pi-started servers only)
 pi-llm download [user/repo]     # pull a GGUF from HuggingFace

@@ -7,8 +7,7 @@ function printHelp(): void {
   console.log(`Usage: pi-llm [command]
 
 Inference:
-  serve       Start API server with a model
-  chat        Interactive terminal chat
+  serve       Start API server with a model (detached)
   pi [name]   Launch pi coding agent with a local model
   switch      Stop current server and start a new model with pi
   stop        Stop running server
@@ -18,8 +17,7 @@ Inference:
   api         Print OpenAI-compatible connection info
 
 Models:
-  status      Show models and server status
-  info        Show model details
+  status      Server / llama.cpp / models summary
   download    Download model from HuggingFace
   search      Search HuggingFace for GGUF models
   delete      Delete a model
@@ -56,11 +54,6 @@ async function dispatch(): Promise<void> {
     case 'start': {
       const m = await import('./commands/serve.js');
       await m.serve();
-      return;
-    }
-    case 'chat': {
-      const m = await import('./commands/chat.js');
-      await m.chat();
       return;
     }
     case 'pi': {
@@ -112,11 +105,6 @@ async function dispatch(): Promise<void> {
     case 'rm': {
       const m = await import('./commands/delete.js');
       await m.del();
-      return;
-    }
-    case 'info': {
-      const m = await import('./commands/info.js');
-      await m.info();
       return;
     }
     case 'api': {
