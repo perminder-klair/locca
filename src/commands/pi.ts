@@ -174,6 +174,7 @@ async function runPi(
   const piArgs = ['--model', `${PI_PROVIDER_KEY}/${modelId}`];
   if (!cfg.piSkills) piArgs.push('--no-skills');
   if (!cfg.piExtensions) piArgs.push('--no-extensions');
+  if (!cfg.piContextFiles) piArgs.push('--no-context-files');
   piArgs.push(...skillArgs, ...forward);
 
   const child = spawn('pi', piArgs, { stdio: 'inherit' });

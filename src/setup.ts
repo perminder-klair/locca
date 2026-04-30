@@ -6,12 +6,21 @@ import { searchHF } from './commands/search.js';
 import { CONFIG_FILE, loadConfig, saveConfig } from './config.js';
 import { detectDistro, renderLlamaInstallHint } from './distro.js';
 import { scanModels } from './models.js';
-import { probeServer } from './server.js';
-import { exitIfCancelled, pc } from './ui.js';
+import { exitIfCancelled, pc, printBanner } from './ui.js';
 import { autoThreads, expandHome, have } from './util.js';
 
 export async function runSetup(): Promise<void> {
-  p.intro(pc.magenta(pc.bold('locca setup')));
+  printBanner({ tagline: true });
+  p.intro(`${pc.bgMagenta(pc.black(pc.bold(' locca ')))}  ${pc.magenta('setup')}`);
+  p.log.message(
+    [
+      `${pc.magenta('▸')} Pick a models folder`,
+      `${pc.magenta('▸')} Confirm llama.cpp is installed ${pc.dim('(locca spawns it for you)')}`,
+      `${pc.magenta('▸')} Tune defaults ${pc.dim('(port, context, threads, VRAM budget)')}`,
+      '',
+      pc.dim('Saved to ~/.locca/config.json — re-run `locca setup` anytime.'),
+    ].join('\n'),
+  );
 
   const existing = loadConfig();
   const totalCores = autoThreads() + 2; // autoThreads = nproc - 2
@@ -40,42 +49,21 @@ export async function runSetup(): Promise<void> {
     }
   }
 
-  // ── llama.cpp source: spawn locally vs use an existing server ───────
+  // ── llama.cpp presence check ────────────────────────────────────────
   const llamaPresent = have('llama-server');
   const distro = detectDistro();
 
-  const sourceLabel = llamaPresent
-    ? `llama-server is on PATH — locca will spawn it for you (detected ${distro.prettyName})`
-    : `llama-server NOT found in PATH (detected ${distro.prettyName})`;
-  p.log.message(sourceLabel);
-
-  type Source = 'local' | 'external';
-  const defaultSource: Source = llamaPresent ? 'local' : 'external';
-  const source = await p.select<Source>({
-    message: 'How should locca reach llama.cpp?',
-    initialValue: defaultSource,
-    options: [
-      {
-        value: 'local',
-        label: 'Local — locca spawns llama-server when needed',
-        hint: llamaPresent ? '' : 'requires llama-server on PATH',
-      },
-      {
-        value: 'external',
-        label: 'External — locca connects to a server you already run',
-        hint: 'e.g. another machine on your LAN, or a server you start yourself',
-      },
-    ],
-  });
-  exitIfCancelled(source);
-
-  let serverUrl: string | undefined;
-  if (source === 'external') {
-    serverUrl = await promptForExternalServer(existing.serverUrl);
+  if (llamaPresent) {
+    p.log.success(
+      `llama-server is on PATH — locca will spawn it for you ${pc.dim(`(detected ${distro.prettyName})`)}`,
+    );
+  } else {
+    p.log.warn(
+      `llama-server NOT found in PATH ${pc.dim(`(detected ${distro.prettyName})`)} — install instructions at the end of setup.`,
+    );
   }
 
-  // Server defaults (port/ctx/threads — relevant for `local`; for `external`
-  // they're still useful as fallbacks but mostly cosmetic).
+  // Server defaults (port/ctx/threads).
   const useDefaults = await p.confirm({
     message: `Use sensible defaults? (port 8080, ctx 32768, threads ${threadDefault} of ${totalCores} cores)`,
     initialValue: true,
@@ -121,30 +109,41 @@ export async function runSetup(): Promise<void> {
   });
   exitIfCancelled(piExtensions);
 
+  const piContextFiles = await p.confirm({
+    message: "Enable pi's AGENTS.md / CLAUDE.md context files?",
+    initialValue: existing.piContextFiles ?? false,
+  });
+  exitIfCancelled(piContextFiles);
+
   saveConfig({
     modelsDir,
     defaultPort: port,
     defaultCtx: ctx,
     defaultThreads: threads,
-    serverUrl,
+    serverUrl: undefined,
     vramBudgetMB,
     piSkills,
     piExtensions,
+    piContextFiles,
   });
   p.log.success(`Wrote ${CONFIG_FILE}`);
 
-  if (source === 'local' && !llamaPresent) {
-    p.log.warn('llama-server is not yet on PATH.');
+  if (!llamaPresent) {
+    p.log.warn(
+      `${pc.bgYellow(pc.black(pc.bold(' ACTION REQUIRED ')))} ${pc.yellow(pc.bold('llama-server is not yet on PATH.'))}`,
+    );
     p.log.message(renderLlamaInstallHint());
     p.log.message(
-      `If you built it elsewhere, set llamaServer/llamaCli in ${CONFIG_FILE} to absolute paths.`,
+      pc.dim(
+        `If you built it elsewhere, set llamaServer/llamaCli in ${CONFIG_FILE} to absolute paths.`,
+      ),
     );
   }
 
-  // Offer to grab a starter model when the modelsDir is empty and the user
-  // is going to spawn locally — without weights they can't actually run
-  // anything, and discovering `locca download` on their own is friction.
-  if (source === 'local' && scanModels(modelsDir).length === 0) {
+  // Offer to grab a starter model when the modelsDir is empty — without
+  // weights locca can't actually run anything, and discovering
+  // `locca download` on their own is friction.
+  if (scanModels(modelsDir).length === 0) {
     await promptForFirstModel();
   }
 
@@ -183,61 +182,16 @@ async function promptForVramBudget(
   return choice > 0 ? choice : undefined;
 }
 
-async function promptForExternalServer(
-  existingUrl: string | undefined,
-): Promise<string> {
-  while (true) {
-    const urlIn = await p.text({
-      message: 'URL of your llama.cpp server',
-      placeholder: existingUrl ?? 'http://localhost:8081',
-      initialValue: existingUrl ?? 'http://localhost:8081',
-      validate: (v) => {
-        if (!v) return 'URL is required';
-        try {
-          const u = new URL(v);
-          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-            return 'URL must be http:// or https://';
-          }
-        } catch {
-          return 'Not a valid URL';
-        }
-        return undefined;
-      },
-    });
-    exitIfCancelled(urlIn);
-    const url = urlIn.trim().replace(/\/$/, '');
-
-    const spinner = p.spinner();
-    spinner.start(`Probing ${url}/health ...`);
-    const probe = await probeServer(url, 3000);
-    if (probe.alive) {
-      spinner.stop(
-        probe.model
-          ? `Server is reachable (loaded model: ${probe.model})`
-          : 'Server is reachable',
-      );
-      return url;
-    }
-    spinner.stop('Could not reach server');
-    const retry = await p.select<'retry' | 'save' | 'cancel'>({
-      message: 'How do you want to proceed?',
-      options: [
-        { value: 'retry', label: 'Try a different URL' },
-        { value: 'save', label: 'Save anyway (server may not be up yet)' },
-        { value: 'cancel', label: 'Cancel setup' },
-      ],
-    });
-    exitIfCancelled(retry);
-    if (retry === 'save') return url;
-    if (retry === 'cancel') process.exit(0);
-    // else retry loop
-  }
-}
-
 async function promptForFirstModel(): Promise<void> {
   p.log.message('Your models directory is empty — locca needs a .gguf to run.');
 
-  type Choice = 'gemma-e2b' | 'qwen-9b' | 'qwen-moe' | 'browse' | 'skip';
+  type Choice =
+    | 'gemma-e2b'
+    | 'qwen-0_8b'
+    | 'qwen-9b'
+    | 'qwen-moe'
+    | 'browse'
+    | 'skip';
   const choice = await p.select<Choice>({
     message: 'Grab a starter model now?',
     initialValue: 'gemma-e2b',
@@ -246,6 +200,11 @@ async function promptForFirstModel(): Promise<void> {
         value: 'gemma-e2b',
         label: 'Gemma 4 E2B IT       — tiny, runs almost anywhere',
         hint: 'smallest; good first model',
+      },
+      {
+        value: 'qwen-0_8b',
+        label: 'Qwen3.5 0.8B         — ultra-light, snappy on CPU',
+        hint: '~600 MB at Q4; great for low-RAM machines',
       },
       {
         value: 'qwen-9b',
@@ -271,6 +230,8 @@ async function promptForFirstModel(): Promise<void> {
   try {
     if (choice === 'gemma-e2b') {
       await download(['unsloth/gemma-4-E2B-it-GGUF']);
+    } else if (choice === 'qwen-0_8b') {
+      await download(['unsloth/Qwen3.5-0.8B-GGUF']);
     } else if (choice === 'qwen-9b') {
       await download(['unsloth/Qwen3.5-9B-GGUF']);
     } else if (choice === 'qwen-moe') {

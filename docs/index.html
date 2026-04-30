@@ -28,8 +28,8 @@
       --fg: #e6e8eb;
       --fg-mute: #9aa3ad;
       --fg-faint: #6b7480;
-      --amber: #f5a524;
-      --amber-soft: rgba(245, 165, 36, 0.14);
+      --magenta: #d946ef;
+      --magenta-soft: rgba(217, 70, 239, 0.14);
       --teal: #5eead4;
       --teal-soft: rgba(94, 234, 212, 0.12);
       --rose: #f87171;
@@ -55,19 +55,19 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       background-image:
-        radial-gradient(1200px 600px at 80% -10%, rgba(245, 165, 36, 0.06), transparent 60%),
+        radial-gradient(1200px 600px at 80% -10%, rgba(217, 70, 239, 0.08), transparent 60%),
         radial-gradient(900px 500px at -10% 20%, rgba(94, 234, 212, 0.05), transparent 60%);
       background-attachment: fixed;
     }
 
     a { color: inherit; text-decoration: none; }
     a:focus-visible, button:focus-visible {
-      outline: 2px solid var(--amber);
+      outline: 2px solid var(--magenta);
       outline-offset: 3px;
       border-radius: 6px;
     }
 
-    ::selection { background: var(--amber-soft); color: var(--fg); }
+    ::selection { background: var(--magenta-soft); color: var(--fg); }
 
     .wrap {
       max-width: var(--max);
@@ -81,7 +81,7 @@
       left: -9999px;
       top: 0;
       z-index: 100;
-      background: var(--amber);
+      background: var(--magenta);
       color: var(--bg);
       font-family: var(--mono);
       font-size: 13px;
@@ -117,7 +117,7 @@
       font-size: 18px;
       letter-spacing: -0.01em;
     }
-    .brand .dot { color: var(--amber); }
+    .brand .dot { color: var(--magenta); }
     .nav-links {
       display: flex;
       align-items: center;
@@ -134,7 +134,7 @@
       border-radius: 999px;
       transition: border-color 0.15s ease, background 0.15s ease;
     }
-    .nav-links .gh:hover { border-color: var(--amber); background: var(--amber-soft); }
+    .nav-links .gh:hover { border-color: var(--magenta); background: var(--magenta-soft); }
     @media (max-width: 640px) {
       .nav-links a:not(.gh) { display: none; }
     }
@@ -183,8 +183,8 @@
       transition: border-color 0.15s ease, background 0.15s ease;
     }
     .video-dialog .video-close:hover {
-      border-color: var(--amber);
-      background: var(--amber-soft);
+      border-color: var(--magenta);
+      background: var(--magenta-soft);
     }
 
     /* ---------- hero ---------- */
@@ -244,8 +244,8 @@
     }
     .headline em {
       font-style: normal;
-      color: var(--amber);
-      background: linear-gradient(180deg, transparent 65%, var(--amber-soft) 65%);
+      color: var(--magenta);
+      background: linear-gradient(180deg, transparent 65%, var(--magenta-soft) 65%);
       padding: 0 4px;
       border-radius: 4px;
     }
@@ -279,7 +279,7 @@
       font-size: 14px;
     }
     .install .prompt {
-      color: var(--amber);
+      color: var(--magenta);
       padding: 12px 6px 12px 14px;
       user-select: none;
       flex-shrink: 0;
@@ -320,7 +320,7 @@
       font-size: 14px;
       transition: border-color 0.15s ease, background 0.15s ease;
     }
-    .btn-ghost:hover { border-color: var(--amber); background: var(--amber-soft); }
+    .btn-ghost:hover { border-color: var(--magenta); background: var(--magenta-soft); }
     .btn-ghost svg { width: 16px; height: 16px; }
 
     .meta-row {
@@ -342,7 +342,7 @@
       border: 1px solid var(--line-strong);
       border-radius: var(--radius);
       box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6),
-                  0 0 0 1px rgba(245, 165, 36, 0.06);
+                  0 0 0 1px rgba(217, 70, 239, 0.08);
       overflow: hidden;
       font-family: var(--mono);
       font-size: 13.5px;
@@ -392,23 +392,23 @@
     }
     .term-body .line { white-space: pre; }
     .term-body .line:first-child { white-space: normal; }
-    .term-body .prompt { color: var(--amber); }
+    .term-body .prompt { color: var(--magenta); }
     .term-body .dim { color: var(--fg-faint); }
     .term-body .ok { color: var(--teal); }
-    .term-body .warn { color: var(--amber); }
+    .term-body .warn { color: var(--magenta); }
     .term-body .sel {
       color: var(--bg);
-      background: var(--amber);
+      background: var(--magenta);
       padding: 0 6px;
       border-radius: 3px;
     }
-    .term-body .arrow { color: var(--amber); }
+    .term-body .arrow { color: var(--magenta); }
     .caret {
       display: inline-block;
       width: 8px;
       height: 1.05em;
       vertical-align: -2px;
-      background: var(--amber);
+      background: var(--magenta);
       animation: blink 1s steps(1) infinite;
       margin-left: 2px;
     }
@@ -426,7 +426,7 @@
       font-size: 12px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--amber);
+      color: var(--magenta);
       margin: 0 0 14px;
     }
     h2 {
@@ -462,8 +462,8 @@
     .feature .glyph {
       width: 36px; height: 36px;
       border-radius: 9px;
-      background: var(--amber-soft);
-      color: var(--amber);
+      background: var(--magenta-soft);
+      color: var(--magenta);
       display: grid; place-items: center;
       font-family: var(--mono);
       font-size: 17px;
@@ -542,7 +542,7 @@
       font-variant-numeric: tabular-nums;
     }
     .bench-line .label { color: var(--fg-mute); }
-    .bench-line .num { color: var(--amber); font-weight: 600; text-align: right; }
+    .bench-line .num { color: var(--magenta); font-weight: 600; text-align: right; }
     .bench-line .word { color: var(--teal); }
     .bench-line .desc { color: var(--fg-faint); font-size: 12px; }
     @media (max-width: 540px) {
@@ -581,7 +581,7 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    .ctx-table td:last-child { text-align: right; color: var(--amber); }
+    .ctx-table td:last-child { text-align: right; color: var(--magenta); }
     .ctx-table tr:last-child td { border-bottom: 0; }
 
     /* ---------- commands ---------- */
@@ -609,7 +609,7 @@
     .cmd-row code {
       font-family: var(--mono);
       font-size: 13.5px;
-      color: var(--amber);
+      color: var(--magenta);
       white-space: nowrap;
       flex-shrink: 0;
     }
@@ -645,7 +645,7 @@
       margin-bottom: 10px;
     }
     .code-block .ln { white-space: pre-wrap; }
-    .code-block .ln .p { color: var(--amber); user-select: none; }
+    .code-block .ln .p { color: var(--magenta); user-select: none; }
     .code-block .ln .c { color: var(--fg-faint); }
     .code-block .ln .k { color: var(--teal); }
     .code-block .copy {
@@ -675,7 +675,7 @@
       align-items: center;
       gap: 28px;
       background:
-        radial-gradient(600px 200px at 100% 0%, rgba(245, 165, 36, 0.08), transparent 60%),
+        radial-gradient(600px 200px at 100% 0%, rgba(217, 70, 239, 0.10), transparent 60%),
         var(--bg-soft);
       border: 1px solid var(--line-strong);
       border-radius: var(--radius);
@@ -701,7 +701,7 @@
       font-family: var(--mono);
       font-size: 64px;
       line-height: 1;
-      color: var(--amber);
+      color: var(--magenta);
       letter-spacing: -0.04em;
       opacity: 0.85;
     }
@@ -852,7 +852,7 @@
         <p class="eyebrow">The numbers</p>
         <h2 id="show-title">Speed you can read at a glance.</h2>
         <p class="section-lede">
-          <code translate="no" style="font-family:var(--mono);color:var(--amber)">locca bench</code>
+          <code translate="no" style="font-family:var(--mono);color:var(--magenta)">locca bench</code>
           wraps <code translate="no" style="font-family:var(--mono)">llama-bench</code> and
           answers the only question that matters: how long until you see
           a reply.
@@ -919,7 +919,7 @@
         <p class="eyebrow">Surface</p>
         <h2 id="cmd-title">A small set of commands.</h2>
         <p class="section-lede">
-          Run <code translate="no" style="font-family:var(--mono);color:var(--amber)">locca</code>
+          Run <code translate="no" style="font-family:var(--mono);color:var(--magenta)">locca</code>
           with no args for the menu, or jump straight to what you need.
         </p>
 
@@ -987,7 +987,7 @@
         <div class="callout">
           <div>
             <p class="eyebrow" style="margin-bottom:8px">Bonus</p>
-            <h2 id="pi-title">One command into the <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--amber)">pi</a> coding agent.</h2>
+            <h2 id="pi-title">One command into the <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--magenta)">pi</a> coding agent.</h2>
             <p>
               <code translate="no">locca pi qwen</code> fuzzy-matches the first
               <code translate="no">*qwen*.gguf</code> in your models dir, brings up the

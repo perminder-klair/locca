@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import pc from 'picocolors';
 
 export type DistroId =
   | 'arch'
@@ -167,6 +168,15 @@ function shellRcGuess(): string {
 }
 
 /**
+ * Format a shell line: command in default weight, trailing `# comment` dimmed.
+ */
+function fmtCmd(line: string): string {
+  const m = line.match(/^(.*?)(\s+#\s.*)$/);
+  if (!m) return pc.cyan(line);
+  return `${pc.cyan(m[1])}${pc.dim(m[2])}`;
+}
+
+/**
  * Render a multi-line, copy-pasteable install hint for the current distro.
  * Used by `requireLlama` and the setup wizard.
  */
@@ -174,37 +184,47 @@ export function renderLlamaInstallHint(): string {
   const hint = llamaInstallHint();
   const out: string[] = [];
 
-  out.push(`Install llama.cpp on ${hint.detected}:`);
+  out.push(pc.bold(`Install llama.cpp on ${pc.magenta(hint.detected)}:`));
   out.push('');
 
   if (hint.packageLines.length > 0) {
-    out.push('  Distro package (easiest):');
+    out.push(`  ${pc.bold('Distro package')} ${pc.dim('(easiest):')}`);
     for (const line of hint.packageLines) {
-      out.push(`    ${line}`);
+      out.push(`    ${fmtCmd(line)}`);
     }
     out.push('');
   }
 
   if (hint.sourceDepsLine) {
-    out.push(`  Build from source (${hint.backendLabel}):`);
-    out.push(`    ${hint.sourceDepsLine}`);
-    out.push('    git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp');
     out.push(
-      `    cmake -B ~/llama.cpp/build -S ~/llama.cpp ${hint.cmakeBackend}`,
+      `  ${pc.bold('Build from source')} ${pc.dim(`(${hint.backendLabel}):`)}`,
     );
-    out.push('    cmake --build ~/llama.cpp/build -j');
-    out.push('    export PATH="$HOME/llama.cpp/build/bin:$PATH"        # this session');
+    out.push(`    ${fmtCmd(hint.sourceDepsLine)}`);
     out.push(
-      `    echo 'export PATH="$HOME/llama.cpp/build/bin:$PATH"' >> ~/.${shellRcGuess()}   # persist`,
+      `    ${pc.cyan('git clone')} ${pc.underline('https://github.com/ggml-org/llama.cpp')} ~/llama.cpp`,
+    );
+    out.push(
+      `    ${pc.cyan(`cmake -B ~/llama.cpp/build -S ~/llama.cpp ${hint.cmakeBackend}`)}`,
+    );
+    out.push(`    ${pc.cyan('cmake --build ~/llama.cpp/build -j')}`);
+    out.push(
+      `    ${fmtCmd('export PATH="$HOME/llama.cpp/build/bin:$PATH"        # this session')}`,
+    );
+    out.push(
+      `    ${fmtCmd(
+        `echo 'export PATH="$HOME/llama.cpp/build/bin:$PATH"' >> ~/.${shellRcGuess()}   # persist`,
+      )}`,
     );
     out.push('');
   } else {
-    out.push('  Build from source: https://github.com/ggml-org/llama.cpp');
+    out.push(
+      `  ${pc.bold('Build from source:')} ${pc.underline('https://github.com/ggml-org/llama.cpp')}`,
+    );
     out.push('');
   }
 
-  out.push('Already have a server somewhere else? Run:');
-  out.push('  locca setup        # pick "External" and paste the URL');
+  out.push(pc.bold('Already have a server somewhere else?') + ' Run:');
+  out.push(`  ${pc.cyan('locca setup')}        ${pc.dim('# pick "External" and paste the URL')}`);
 
   return out.join('\n');
 }

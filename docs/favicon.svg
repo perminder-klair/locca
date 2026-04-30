@@ -3,6 +3,6 @@
   <rect x="2" y="2" width="60" height="60" rx="13" fill="none" stroke="#1f242c" stroke-width="1"/>
   <text x="32" y="45" text-anchor="middle"
         font-family="ui-monospace, SFMono-Regular, Menlo, monospace"
-        font-size="42" font-weight="700" fill="#f5a524">l</text>
+        font-size="42" font-weight="700" fill="#d946ef">l</text>
   <circle cx="48" cy="48" r="4" fill="#5eead4"/>
 </svg>
