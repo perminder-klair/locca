@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>locca — run local LLMs with one command</title>
-  <meta name="description" content="A TUI for llama.cpp. Auto-tuned for iGPUs. Talks to pi, curl, or anything OpenAI-compatible. Install with one npm command." />
+  <title>locca — run coding agents against local GGUF models</title>
+  <meta name="description" content="The fastest way to run coding agents against local GGUF models. One-command model switching on top of your llama.cpp setup, with iGPU-ready defaults and OpenAI-compatible endpoints." />
   <meta name="theme-color" content="#0b0d10" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <meta property="og:title" content="locca — run pi locally" />
-  <meta property="og:description" content="A TUI for llama.cpp. Run the pi coding agent on your own GPU. Download, switch, repeat." />
+  <meta property="og:title" content="locca — coding agents on local GGUF models" />
+  <meta property="og:description" content="One-command model switching for llama.cpp. iGPU-tuned defaults. OpenAI-compatible — point pi, Cursor, Claude Code, or any client at the model you just downloaded." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="og.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="locca — run pi locally. Download, switch, repeat." />
+  <meta property="og:image:alt" content="locca — fastest way to run coding agents on local GGUF models." />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:image" content="og.png" />
-  <meta name="twitter:image:alt" content="locca — run pi locally. Download, switch, repeat." />
+  <meta name="twitter:image:alt" content="locca — fastest way to run coding agents on local GGUF models." />
   <style>
     :root {
       color-scheme: dark;
@@ -747,16 +747,18 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="wrap hero-grid">
         <div>
-          <span class="pill"><span class="pulse" aria-hidden="true"></span> Local-first · MIT · v0.1.0</span>
+          <span class="pill"><span class="pulse" aria-hidden="true"></span> Local-first · MIT · v0.1.2</span>
           <h1 id="hero-title" class="headline">
-            Run pi locally.<br />Download, <em>switch</em>, repeat.
+            Run agent locally.<br />Download, <em>switch</em>, repeat.
           </h1>
           <p class="lede">
-            <strong translate="no">locca</strong> runs the
+            <strong translate="no">locca</strong> sits on top of your
+            <code translate="no">llama.cpp</code> setup with one-command model
+            switching, defaults that work on iGPU / shared-VRAM machines,
+            and OpenAI-compatible endpoints printed for the taking — ships
+            with the
             <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">pi</a>
-            coding agent against a <code translate="no">llama.cpp</code> server on your own
-            machine. Download a GGUF, switch models with one command, and
-            point any OpenAI-compatible client at it.
+            coding agent wired up to whatever GGUF you just downloaded.
           </p>
 
           <div class="cta-row">
@@ -860,7 +862,7 @@
           <div class="panel">
             <div class="panel-head">
               <h3 translate="no">locca bench · qwen2.5-coder-7b · q4_k_m</h3>
-              <span class="tag">live</span>
+              <span class="tag" style="color:var(--fg-faint);background:transparent;border:1px solid var(--line-strong)">example · Radeon 890M iGPU</span>
             </div>
             <div class="panel-body">
               <div class="bench-line">
@@ -938,46 +940,6 @@
       </div>
     </section>
 
-    <!-- ============ AGENT SKILL ============ -->
-    <section id="skill" aria-labelledby="skill-title">
-      <div class="wrap">
-        <p class="eyebrow">Bundled</p>
-        <h2 id="skill-title">A skill your AI editor can lean on.</h2>
-        <p class="section-lede">
-          locca ships an agent skill at
-          <code translate="no" style="font-family:var(--mono)">.claude/skills/llama-cpp-manage/</code>.
-          Your coding agent reads it when you hit llama.cpp install pain,
-          server startup failures, port conflicts, or pi integration
-          issues. It covers per-distro install matrices, GPU backend
-          selection, <code translate="no" style="font-family:var(--mono)">/health</code>
-          diagnostics, and a one-shot diagnose script.
-        </p>
-
-        <div class="install-grid">
-          <div class="code-block">
-            <button class="copy" data-copy="bash .claude/skills/llama-cpp-manage/scripts/diagnose.sh" type="button">Copy</button>
-            <div class="h">Diagnose script</div>
-            <div class="ln"><span class="c"># prints distro · llama.cpp · locca</span></div>
-            <div class="ln"><span class="c"># config · /health · pidfile state ·</span></div>
-            <div class="ln"><span class="c"># models dir · vulkan devices.</span></div>
-            <div class="ln">&nbsp;</div>
-            <div class="ln"><span class="p">$</span> bash .claude/skills/<wbr />llama-cpp-manage/<wbr />scripts/<wbr />diagnose.sh</div>
-          </div>
-
-          <div class="code-block">
-            <div class="h">What it teaches the agent</div>
-            <div class="ln"><span class="c">▸ apt / dnf / pacman / zypper /</span></div>
-            <div class="ln"><span class="c">  apk / brew install matrices</span></div>
-            <div class="ln"><span class="c">▸ vulkan · metal · rocm · cuda</span></div>
-            <div class="ln"><span class="c">  backend selection</span></div>
-            <div class="ln"><span class="c">▸ port + /health diagnostics</span></div>
-            <div class="ln"><span class="c">▸ ~/.pi/agent/models.json wiring</span></div>
-            <div class="ln"><span class="c">▸ ctx, sampling, vision mmproj</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- ============ INSTALL ============ -->
     <section id="install" aria-labelledby="install-title">
       <div class="wrap">
@@ -1032,7 +994,7 @@
               server if it isn’t already running, and registers itself as a
               custom OpenAI-compatible provider in
               <code translate="no">~/.pi/agent/models.json</code>. Switch model, switch
-              brain — <code translate="no">locca switch llama-3.1-70b</code>.
+              brain — <code translate="no">locca switch gpt-oss-20b</code>.
             </p>
           </div>
           <div class="pi-mark" aria-hidden="true">π</div>
@@ -1046,7 +1008,7 @@
       <span>© 2026 · MIT licensed · built on <a href="https://github.com/ggml-org/llama.cpp" target="_blank" rel="noopener" style="color:var(--fg-mute)">llama.cpp</a></span>
       <div class="footer-links">
         <a href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener">github</a>
-        <a href="https://www.npmjs.com/package/locca" target="_blank" rel="noopener">npm</a>
+        <a href="https://www.npmjs.com/package/@zeiq/locca" target="_blank" rel="noopener">npm</a>
         <a href="https://pi.dev" target="_blank" rel="noopener">pi.dev</a>
       </div>
     </div>

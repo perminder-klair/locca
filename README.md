@@ -259,7 +259,7 @@ harmless to ignore.
 ## Updating
 
 ```bash
-npm update -g locca
+npm update -g @zeiq/locca
 ```
 
 Or, if installed from source via `npm link`:
@@ -274,7 +274,7 @@ npm run build
 ## Uninstall
 
 ```bash
-npm uninstall -g locca
+npm uninstall -g @zeiq/locca
 rm -rf "$HOME/.locca"                                   # remove config + models (optional)
 rm -rf "$HOME/.pi/agent"                                # remove pi provider config (optional)
 rm -f "${XDG_RUNTIME_DIR:-/tmp}/locca-server."{pid,log}
