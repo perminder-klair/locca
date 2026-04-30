@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts';
 import { bench } from './commands/bench.js';
+import { config } from './commands/config.js';
 import { del } from './commands/delete.js';
 import { download } from './commands/download.js';
 import { logs } from './commands/logs.js';
@@ -21,6 +22,7 @@ type Action =
   | 'search'
   | 'delete'
   | 'stop'
+  | 'config'
   | 'quit';
 
 export async function menu(): Promise<void> {
@@ -46,6 +48,7 @@ export async function menu(): Promise<void> {
         { value: 'download', label: 'Download — pull from HuggingFace' },
         { value: 'search', label: 'Search   — find models on HuggingFace' },
         { value: 'delete', label: 'Delete   — remove a model' },
+        { value: 'config', label: 'Config   — view / edit settings' },
         { value: 'quit', label: 'Quit' },
       ],
     });
@@ -134,6 +137,9 @@ async function runAction(action: Exclude<Action, 'quit'>): Promise<void> {
       break;
     case 'stop':
       await stop();
+      break;
+    case 'config':
+      await config([]);
       break;
   }
 }

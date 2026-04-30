@@ -24,6 +24,7 @@ Models:
 
 Setup:
   setup       Run the interactive setup wizard
+  config      View / edit settings (get, set, reset, path, list)
 
 Run without arguments for the interactive menu.`);
 }
@@ -110,6 +111,11 @@ async function dispatch(): Promise<void> {
     case 'api': {
       const m = await import('./commands/api.js');
       await m.api();
+      return;
+    }
+    case 'config': {
+      const m = await import('./commands/config.js');
+      await m.config(rest);
       return;
     }
     default:
