@@ -6,6 +6,7 @@ import { refuseIfPortTaken } from '../preflight.js';
 import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
 import type { Model } from '../types.js';
 import { exitIfCancelled, pc } from '../ui.js';
+import { api } from './api.js';
 
 export async function serve(): Promise<void> {
   const cfg = loadConfig();
@@ -105,18 +106,19 @@ export async function serve(): Promise<void> {
   });
 
   const ready = await waitReady(port, 60);
-  if (ready) {
-    console.log();
-    console.log(pc.green(pc.bold(`  Server ready at http://0.0.0.0:${port}/v1`)));
-    console.log(
-      `  PID: ${child.pid}  |  Stop with: pi-llm stop  |  Logs: pi-llm logs`,
+  if (!ready) {
+    p.log.warn(
+      'Server did not become ready within 60s — run `pi-llm logs` to see output.',
     );
     return;
   }
 
-  p.log.warn(
-    'Server did not become ready within 60s — run `pi-llm logs` to see output.',
-  );
+  // Show the OpenAI-compatible connection info — same output as
+  // `pi-llm api`. Includes LAN / Tailscale URLs when bound to 0.0.0.0,
+  // model name, endpoints, and a curl quick-test.
+  await api();
+  console.log(`  ${pc.dim('Stop with: pi-llm stop  |  Logs: pi-llm logs')}`);
+  console.log();
 }
 
 function printStartupBanner(model: Model, port: number, ctx: number): void {

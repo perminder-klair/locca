@@ -1,5 +1,4 @@
 import * as p from '@clack/prompts';
-import { api } from './commands/api.js';
 import { bench } from './commands/bench.js';
 import { del } from './commands/delete.js';
 import { download } from './commands/download.js';
@@ -17,7 +16,6 @@ type Action =
   | 'switch'
   | 'status'
   | 'bench'
-  | 'api'
   | 'logs'
   | 'download'
   | 'search'
@@ -35,15 +33,14 @@ export async function menu(): Promise<void> {
     options: [
       { value: 'pi', label: 'Pi       — coding agent (local)' },
       { value: 'serve', label: 'Serve    — start API server' },
+      { value: 'stop', label: 'Stop     — stop server' },
       { value: 'switch', label: 'Switch   — swap server to a different model' },
       { value: 'status', label: 'Status   — server / llama.cpp / models summary' },
       { value: 'bench', label: 'Bench    — benchmark a model' },
-      { value: 'api', label: 'API      — OpenAI-compatible connection info' },
       { value: 'logs', label: 'Logs     — tail server log' },
       { value: 'download', label: 'Download — pull from HuggingFace' },
       { value: 'search', label: 'Search   — find models on HuggingFace' },
       { value: 'delete', label: 'Delete   — remove a model' },
-      { value: 'stop', label: 'Stop     — stop server' },
       { value: 'quit', label: 'Quit' },
     ],
   });
@@ -64,9 +61,6 @@ export async function menu(): Promise<void> {
       break;
     case 'bench':
       await bench();
-      break;
-    case 'api':
-      await api();
       break;
     case 'logs':
       await logs();
