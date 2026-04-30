@@ -22,6 +22,7 @@
     "build": "npm run clean && tsc",
     "dev": "tsc --watch",
     "start": "node bin/locca",
+    "site": "python3 -m http.server 8765 --bind 127.0.0.1 --directory docs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

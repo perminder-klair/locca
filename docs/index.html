@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>locca — run local LLMs with one command</title>
+  <meta name="description" content="A TUI for llama.cpp. Auto-tuned for iGPUs. Talks to pi, curl, or anything OpenAI-compatible. Install with one npm command." />
+  <meta name="theme-color" content="#0b0d10" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta property="og:title" content="locca — run local LLMs with one command" />
+  <meta property="og:description" content="A TUI for llama.cpp. Auto-tuned for iGPUs. Talks to pi, curl, or anything OpenAI-compatible." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --bg-soft: #11141a;
+      --bg-soft-2: #161a21;
+      --line: #1f242c;
+      --line-strong: #2a3038;
+      --fg: #e6e8eb;
+      --fg-mute: #9aa3ad;
+      --fg-faint: #6b7480;
+      --amber: #f5a524;
+      --amber-soft: rgba(245, 165, 36, 0.14);
+      --teal: #5eead4;
+      --teal-soft: rgba(94, 234, 212, 0.12);
+      --rose: #f87171;
+      --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+      --max: 1120px;
+      --gutter: clamp(20px, 4vw, 40px);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      background-image:
+        radial-gradient(1200px 600px at 80% -10%, rgba(245, 165, 36, 0.06), transparent 60%),
+        radial-gradient(900px 500px at -10% 20%, rgba(94, 234, 212, 0.05), transparent 60%);
+      background-attachment: fixed;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--amber);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
+    ::selection { background: var(--amber-soft); color: var(--fg); }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+
+    /* ---------- nav ---------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: saturate(140%) blur(10px);
+      -webkit-backdrop-filter: saturate(140%) blur(10px);
+      background: color-mix(in oklab, var(--bg) 78%, transparent);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      height: 60px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 2px;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+    .brand .dot { color: var(--amber); }
+    .nav-links {
+      display: flex;
+      gap: 22px;
+      margin-left: auto;
+      font-size: 14px;
+      color: var(--fg-mute);
+    }
+    .nav-links a:hover { color: var(--fg); }
+    .nav-links .gh {
+      color: var(--fg);
+      border: 1px solid var(--line-strong);
+      padding: 6px 12px;
+      border-radius: 999px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .nav-links .gh:hover { border-color: var(--amber); background: var(--amber-soft); }
+    @media (max-width: 640px) {
+      .nav-links a:not(.gh) { display: none; }
+    }
+
+    /* ---------- hero ---------- */
+    .hero {
+      padding: clamp(56px, 9vw, 110px) 0 clamp(40px, 7vw, 84px);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: clamp(32px, 5vw, 64px);
+      align-items: center;
+    }
+    @media (max-width: 1024px) {
+      .hero-grid { grid-template-columns: 1fr; }
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--fg-mute);
+      border: 1px solid var(--line-strong);
+      background: var(--bg-soft);
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 24px;
+    }
+    .pill .pulse {
+      width: 6px; height: 6px; border-radius: 999px; background: var(--teal);
+      box-shadow: 0 0 0 0 var(--teal-soft);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--teal-soft); }
+      50% { box-shadow: 0 0 0 8px transparent; }
+    }
+    h1.headline {
+      font-family: var(--sans);
+      font-size: clamp(36px, 5.4vw, 60px);
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      font-weight: 700;
+      margin: 0 0 18px;
+    }
+    .headline em {
+      font-style: normal;
+      color: var(--amber);
+      background: linear-gradient(180deg, transparent 65%, var(--amber-soft) 65%);
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    .lede {
+      font-size: clamp(16px, 1.6vw, 19px);
+      color: var(--fg-mute);
+      max-width: 560px;
+      margin: 0 0 32px;
+    }
+    .lede code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      color: var(--fg);
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+
+    .install {
+      display: inline-flex;
+      align-items: stretch;
+      max-width: 100%;
+      background: var(--bg-soft);
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+    .install .prompt {
+      color: var(--amber);
+      padding: 12px 6px 12px 14px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .install .cmd {
+      padding: 12px 14px 12px 4px;
+      color: var(--fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .install button {
+      border: 0;
+      border-left: 1px solid var(--line-strong);
+      background: transparent;
+      color: var(--fg-mute);
+      padding: 0 14px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: color 0.15s ease, background 0.15s ease;
+      flex-shrink: 0;
+    }
+    .install button:hover { color: var(--fg); background: var(--bg-soft-2); }
+    .install button.copied { color: var(--teal); }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--line-strong);
+      color: var(--fg);
+      font-size: 14px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .btn-ghost:hover { border-color: var(--amber); background: var(--amber-soft); }
+    .btn-ghost svg { width: 16px; height: 16px; }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px 26px;
+      margin-top: 28px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--fg-faint);
+    }
+    .meta-row span { display: inline-flex; align-items: center; gap: 6px; }
+    .meta-row .k { color: var(--teal); }
+
+    /* ---------- terminal ---------- */
+    .term {
+      background: var(--bg-soft);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6),
+                  0 0 0 1px rgba(245, 165, 36, 0.06);
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.65;
+      position: relative;
+    }
+    .term::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        180deg,
+        transparent 0,
+        transparent 3px,
+        rgba(255, 255, 255, 0.012) 3px,
+        rgba(255, 255, 255, 0.012) 4px
+      );
+      opacity: 0.6;
+    }
+    .term-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 14px;
+      background: var(--bg-soft-2);
+      border-bottom: 1px solid var(--line);
+    }
+    .term-bar .led {
+      width: 11px; height: 11px; border-radius: 999px;
+      background: #2a3038;
+    }
+    .term-bar .led.r { background: #ef5d5d; }
+    .term-bar .led.y { background: #f5a524; }
+    .term-bar .led.g { background: #5eead4; }
+    .term-bar .title {
+      margin-left: 10px;
+      color: var(--fg-faint);
+      font-size: 12px;
+    }
+    .term-body {
+      padding: 18px 18px 22px;
+      color: var(--fg);
+      min-height: 320px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .term-body .line { white-space: pre; }
+    .term-body .line:first-child { white-space: normal; }
+    .term-body .prompt { color: var(--amber); }
+    .term-body .dim { color: var(--fg-faint); }
+    .term-body .ok { color: var(--teal); }
+    .term-body .warn { color: var(--amber); }
+    .term-body .sel {
+      color: var(--bg);
+      background: var(--amber);
+      padding: 0 6px;
+      border-radius: 3px;
+    }
+    .term-body .arrow { color: var(--amber); }
+    .caret {
+      display: inline-block;
+      width: 8px;
+      height: 1.05em;
+      vertical-align: -2px;
+      background: var(--amber);
+      animation: blink 1s steps(1) infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* ---------- generic section ---------- */
+    section {
+      padding: clamp(56px, 7vw, 96px) 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin: 0 0 14px;
+    }
+    h2 {
+      font-size: clamp(26px, 3.2vw, 36px);
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 16px;
+    }
+    .section-lede {
+      color: var(--fg-mute);
+      max-width: 640px;
+      font-size: 17px;
+      margin: 0 0 44px;
+    }
+
+    /* ---------- features ---------- */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 900px) { .features { grid-template-columns: 1fr; } }
+    .feature {
+      background: linear-gradient(180deg, var(--bg-soft), var(--bg));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 26px 24px 28px;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+    .feature:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+    .feature .glyph {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      display: grid; place-items: center;
+      font-family: var(--mono);
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .feature h3 {
+      font-size: 17px;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+    .feature p {
+      color: var(--fg-mute);
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.6;
+    }
+    .feature p code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      color: var(--fg);
+      background: var(--bg-soft-2);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ---------- showcase (bench + ctx) ---------- */
+    .showcase {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 28px;
+      align-items: stretch;
+    }
+    @media (max-width: 900px) { .showcase { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--fg-faint);
+    }
+    .panel-head .tag {
+      color: var(--teal);
+      background: var(--teal-soft);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .panel-body { padding: 22px 22px 24px; }
+
+    .bench-line {
+      display: grid;
+      grid-template-columns: 130px 110px 130px 1fr;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      padding: 6px 0;
+      align-items: baseline;
+    }
+    .bench-line .label { color: var(--fg-mute); }
+    .bench-line .num { color: var(--amber); font-weight: 600; text-align: right; }
+    .bench-line .word { color: var(--teal); }
+    .bench-line .desc { color: var(--fg-faint); font-size: 12px; }
+    @media (max-width: 540px) {
+      .bench-line { grid-template-columns: 1fr 1fr; }
+      .bench-line .desc { grid-column: 1 / -1; }
+    }
+    .bench-translate {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--line-strong);
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--fg-mute);
+    }
+    .bench-translate ul { margin: 8px 0 0; padding-left: 18px; }
+    .bench-translate li { margin-bottom: 2px; }
+    .bench-translate b { color: var(--fg); font-weight: 600; }
+
+    .ctx-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 13.5px;
+    }
+    .ctx-table th, .ctx-table td {
+      padding: 11px 4px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+    .ctx-table th {
+      font-weight: 500;
+      color: var(--fg-faint);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .ctx-table td:last-child { text-align: right; color: var(--amber); }
+    .ctx-table tr:last-child td { border-bottom: 0; }
+
+    /* ---------- commands ---------- */
+    .cmd-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 28px;
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 22px 26px;
+    }
+    @media (max-width: 720px) { .cmd-grid { grid-template-columns: 1fr; } }
+    .cmd-row {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      padding: 8px 0;
+      border-bottom: 1px dashed var(--line);
+    }
+    .cmd-row:last-child, .cmd-grid > .cmd-row:nth-last-child(-n+2) { border-bottom: 0; }
+    .cmd-row code {
+      font-family: var(--mono);
+      font-size: 13.5px;
+      color: var(--amber);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .cmd-row span {
+      color: var(--fg-mute);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    /* ---------- hardware grid ---------- */
+    .hw-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 760px) { .hw-grid { grid-template-columns: repeat(2, 1fr); } }
+    .hw-cell {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 16px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .hw-cell .name { color: var(--fg); font-weight: 600; font-size: 14px; display: block; margin-bottom: 4px; }
+    .hw-cell .sub { color: var(--fg-faint); font-size: 12px; }
+
+    /* ---------- install section ---------- */
+    .install-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 760px) { .install-grid { grid-template-columns: 1fr; } }
+    .code-block {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 20px;
+      font-family: var(--mono);
+      font-size: 13.5px;
+      line-height: 1.7;
+      position: relative;
+    }
+    .code-block .h {
+      color: var(--fg-faint);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .code-block .ln { white-space: pre-wrap; }
+    .code-block .ln .p { color: var(--amber); user-select: none; }
+    .code-block .ln .c { color: var(--fg-faint); }
+    .code-block .ln .k { color: var(--teal); }
+    .code-block .copy {
+      position: absolute;
+      top: 14px; right: 14px;
+      background: transparent;
+      border: 1px solid var(--line-strong);
+      color: var(--fg-faint);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s ease, color 0.15s ease;
+    }
+    .code-block:hover .copy { opacity: 1; }
+    .code-block .copy:hover { color: var(--fg); }
+    .code-block .copy.copied { color: var(--teal); border-color: var(--teal); opacity: 1; }
+
+    /* ---------- pi callout ---------- */
+    .callout {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 28px;
+      background:
+        radial-gradient(600px 200px at 100% 0%, rgba(245, 165, 36, 0.08), transparent 60%),
+        var(--bg-soft);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      padding: 30px 32px;
+    }
+    @media (max-width: 760px) {
+      .callout { grid-template-columns: 1fr; }
+    }
+    .callout h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: -0.015em;
+    }
+    .callout p { color: var(--fg-mute); margin: 0; font-size: 15px; }
+    .callout p code {
+      font-family: var(--mono);
+      color: var(--fg);
+      background: var(--bg-soft-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .callout .pi-mark {
+      font-family: var(--mono);
+      font-size: 64px;
+      line-height: 1;
+      color: var(--amber);
+      letter-spacing: -0.04em;
+      opacity: 0.85;
+    }
+
+    /* ---------- footer ---------- */
+    footer {
+      padding: 36px 0 56px;
+      color: var(--fg-faint);
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px 24px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    footer a:hover { color: var(--fg); }
+    .footer-links { display: flex; gap: 22px; flex-wrap: wrap; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a href="#" class="brand" aria-label="locca home">locca<span class="dot">.</span></a>
+      <nav class="nav-links" aria-label="primary">
+        <a href="#features">Features</a>
+        <a href="#commands">Commands</a>
+        <a href="#install">Install</a>
+        <a class="gh" href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener">GitHub →</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="pill"><span class="pulse" aria-hidden="true"></span> Local-first · MIT · v0.1.0</span>
+          <h1 id="hero-title" class="headline">
+            Run local LLMs<br />with <em>one command</em>.
+          </h1>
+          <p class="lede">
+            <strong>locca</strong> is a TUI for <code>llama.cpp</code>. Sensible
+            defaults baked in, auto-tuned context per model, OpenAI-compatible
+            on the wire — and a one-keystroke launch into the
+            <a href="https://pi.dev" target="_blank" rel="noopener" style="color:var(--teal)">pi</a>
+            coding agent against your own GPU.
+          </p>
+
+          <div class="cta-row">
+            <div class="install" role="group" aria-label="install command">
+              <span class="prompt" aria-hidden="true">$</span>
+              <span class="cmd" id="installCmd">npm install -g locca</span>
+              <button id="copyInstall" type="button" aria-label="copy install command">Copy</button>
+            </div>
+            <a class="btn-ghost" href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2 .37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+              View on GitHub
+            </a>
+          </div>
+
+          <div class="meta-row" aria-label="key facts">
+            <span><span class="k">▸</span> linux & macOS</span>
+            <span><span class="k">▸</span> vulkan · metal · cuda · rocm</span>
+            <span><span class="k">▸</span> openai-compatible</span>
+            <span><span class="k">▸</span> zero config</span>
+          </div>
+        </div>
+
+        <div class="term" role="img" aria-label="locca interactive menu mockup">
+          <div class="term-bar" aria-hidden="true">
+            <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+            <span class="title">~/projects · zsh</span>
+          </div>
+          <div class="term-body">
+            <div class="line"><span class="prompt">$</span> <span id="typed"></span><span class="caret" aria-hidden="true"></span></div>
+            <div class="line" id="afterTyped" hidden>
+<span class="dim">┌  locca · running</span>
+<span class="dim">│</span>
+<span class="dim">◇</span>  <span class="ok">attached</span>  llama-server on :8080
+<span class="dim">│</span>            <span class="dim">qwen2.5-coder-7b-instruct-q4_k_m.gguf</span>
+<span class="dim">│</span>            <span class="dim">ctx 131072 · vulkan · 1 slot</span>
+<span class="dim">│</span>
+<span class="dim">◆</span>  what next?
+<span class="dim">│</span>  <span class="arrow">●</span> <span class="sel">launch pi against this server</span>
+<span class="dim">│</span>  <span class="dim">○ swap model & restart</span>
+<span class="dim">│</span>  <span class="dim">○ benchmark current model</span>
+<span class="dim">│</span>  <span class="dim">○ show api endpoints + LAN urls</span>
+<span class="dim">│</span>  <span class="dim">○ download a new GGUF from huggingface</span>
+<span class="dim">└</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <p class="eyebrow">Why locca</p>
+        <h2 id="features-title">Defaults that respect your hardware.</h2>
+        <p class="section-lede">
+          Most local-LLM tools either hide llama.cpp behind a wrapper or expose
+          every flag at once. locca picks defaults that actually work on
+          shared-VRAM iGPUs — and gets out of your way.
+        </p>
+
+        <div class="features">
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⌁</div>
+            <h3>Tuned out of the box</h3>
+            <p>
+              Vulkan, <code>--flash-attn on</code>, <code>q8_0</code> KV cache,
+              <code>--parallel 1</code>, <code>--batch-size 1024</code>,
+              <code>--jinja</code>. A 7–9B model at 128k context fits on a
+              16 GB shared-VRAM iGPU.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⤬</div>
+            <h3>Auto context per model</h3>
+            <p>
+              <code>ctxForModel()</code> reads the model name and picks a sane
+              ctx — 128k for MoE & 7–9B, scaled down for dense 12–35B. One
+              regex away from tuning for your VRAM.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⌘</div>
+            <h3>Composes, doesn't capture</h3>
+            <p>
+              Detects <span style="color:var(--teal)">attached</span> and
+              <span style="color:var(--teal)">external</span> llama-servers
+              instead of fighting them for VRAM. Bring your own supervisor —
+              locca will use it.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SHOWCASE ============ -->
+    <section aria-labelledby="show-title">
+      <div class="wrap">
+        <p class="eyebrow">The numbers</p>
+        <h2 id="show-title">Speed you can read at a glance.</h2>
+        <p class="section-lede">
+          <code style="font-family:var(--mono);color:var(--amber)">locca bench</code>
+          wraps <code style="font-family:var(--mono)">llama-bench</code> and
+          translates raw tok/s into "how long until I see a reply" — the
+          number you actually feel.
+        </p>
+
+        <div class="showcase">
+          <div class="panel">
+            <div class="panel-head">
+              <span>locca bench · qwen2.5-coder-7b · q4_k_m</span>
+              <span class="tag">live</span>
+            </div>
+            <div class="panel-body">
+              <div class="bench-line">
+                <span class="label">Generation</span>
+                <span class="num">18.3 tok/s</span>
+                <span class="word">≈ 14 wps</span>
+                <span class="desc">drives perceived speed</span>
+              </div>
+              <div class="bench-line">
+                <span class="label">Prompt eval</span>
+                <span class="num">231.4 tok/s</span>
+                <span class="word">≈ 178 wps</span>
+                <span class="desc">parallel, batched</span>
+              </div>
+              <div class="bench-translate">
+                Translates to:
+                <ul>
+                  <li>200-token reply <b>10.9 s</b></li>
+                  <li>2 000-token reply <b>1m 49s</b></li>
+                  <li>1 000-token prompt eval <b>4.3 s</b> &nbsp;<span style="color:var(--fg-faint)">(time-to-first-token)</span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <span>auto context per model class</span>
+              <span class="tag">ctxForModel()</span>
+            </div>
+            <div class="panel-body">
+              <table class="ctx-table" aria-label="auto-context table">
+                <thead>
+                  <tr><th>model class</th><th>ctx</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>MoE / *A3B*</td><td>131 072</td></tr>
+                  <tr><td>3B – 9B dense</td><td>131 072</td></tr>
+                  <tr><td>12B – 14B dense</td><td>65 536</td></tr>
+                  <tr><td>22B – 27B dense</td><td>32 768</td></tr>
+                  <tr><td>30B – 35B dense</td><td>65 536</td></tr>
+                  <tr><td>other / unknown</td><td>32 768</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMMANDS ============ -->
+    <section id="commands" aria-labelledby="cmd-title">
+      <div class="wrap">
+        <p class="eyebrow">Surface</p>
+        <h2 id="cmd-title">A small set of commands. Each one earns its place.</h2>
+        <p class="section-lede">
+          Run <code style="font-family:var(--mono);color:var(--amber)">locca</code>
+          with no args for the menu, or jump straight to what you need.
+        </p>
+
+        <div class="cmd-grid" role="list">
+          <div class="cmd-row" role="listitem"><code>locca pi</code><span>Launch the pi coding agent against your local server.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca serve</code><span>Start <code style="font-family:var(--mono)">llama-server</code> with a picked model, detached.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca switch</code><span>Stop current server, start a new model with pi.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca bench</code><span>Run llama-bench with a friendlier summary.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca status</code><span>Server, llama.cpp, and models summary.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca api</code><span>Print OpenAI-compatible connection info + LAN URLs.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca logs</code><span>Tail the server log (locca-spawned servers only).</span></div>
+          <div class="cmd-row" role="listitem"><code>locca download</code><span>Pull a GGUF from HuggingFace into your models dir.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca search</code><span>Fuzzy-search HuggingFace for GGUF models.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca delete</code><span>Remove a model directory you no longer need.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca stop</code><span>Stop the running server.</span></div>
+          <div class="cmd-row" role="listitem"><code>locca setup</code><span>Re-run the setup wizard.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HARDWARE ============ -->
+    <section aria-labelledby="hw-title">
+      <div class="wrap">
+        <p class="eyebrow">Reach</p>
+        <h2 id="hw-title">Works wherever <span style="color:var(--amber)">llama.cpp</span> works.</h2>
+        <p class="section-lede">
+          locca doesn't reimplement inference — it drives the binary you
+          already trust. That means every backend llama.cpp ships with is
+          a first-class citizen here.
+        </p>
+
+        <div class="hw-grid">
+          <div class="hw-cell"><span class="name">Vulkan</span><span class="sub">AMD · Intel · iGPU</span></div>
+          <div class="hw-cell"><span class="name">Metal</span><span class="sub">Apple Silicon</span></div>
+          <div class="hw-cell"><span class="name">CUDA</span><span class="sub">NVIDIA discrete</span></div>
+          <div class="hw-cell"><span class="name">ROCm</span><span class="sub">AMD discrete</span></div>
+          <div class="hw-cell"><span class="name">CPU</span><span class="sub">fallback, always</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INSTALL ============ -->
+    <section id="install" aria-labelledby="install-title">
+      <div class="wrap">
+        <p class="eyebrow">Get going</p>
+        <h2 id="install-title">Install in two steps.</h2>
+        <p class="section-lede">
+          Install <code style="font-family:var(--mono)">llama.cpp</code>, then
+          install locca. First run launches a wizard that finishes config
+          for you — and prints the exact install hint for your distro if
+          llama.cpp isn't on <code style="font-family:var(--mono)">$PATH</code>.
+        </p>
+
+        <div class="install-grid">
+          <div class="code-block">
+            <button class="copy" data-copy="brew install llama.cpp" type="button">Copy</button>
+            <div class="h">macOS · Homebrew</div>
+            <div class="ln"><span class="c"># 1. install llama.cpp</span></div>
+            <div class="ln"><span class="p">$</span> brew install llama.cpp</div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># 2. install locca</span></div>
+            <div class="ln"><span class="p">$</span> npm install -g locca</div>
+            <div class="ln"><span class="p">$</span> locca</div>
+          </div>
+
+          <div class="code-block">
+            <button class="copy" data-copy="sudo pacman -S llama.cpp" type="button">Copy</button>
+            <div class="h">Arch / EndeavourOS</div>
+            <div class="ln"><span class="c"># official pkg (CPU + Vulkan)</span></div>
+            <div class="ln"><span class="p">$</span> sudo pacman -S llama.cpp</div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># or AUR for cutting-edge</span></div>
+            <div class="ln"><span class="p">$</span> yay -S <span class="k">llama.cpp-vulkan-git</span></div>
+            <div class="ln"><span class="p">$</span> npm install -g locca</div>
+          </div>
+
+          <div class="code-block">
+            <button class="copy" data-copy="npm install -g locca" type="button">Copy</button>
+            <div class="h">Debian · Ubuntu · Fedora · openSUSE · Alpine</div>
+            <div class="ln"><span class="c"># build llama.cpp from source —</span></div>
+            <div class="ln"><span class="c"># `locca setup` prints the exact</span></div>
+            <div class="ln"><span class="c"># apt/dnf/zypper/apk line you need.</span></div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="p">$</span> npm install -g locca</div>
+            <div class="ln"><span class="p">$</span> locca <span class="c"># wizard runs, tells you what's missing</span></div>
+          </div>
+
+          <div class="code-block">
+            <button class="copy" data-copy="git clone https://github.com/perminder-klair/locca.git" type="button">Copy</button>
+            <div class="h">From source</div>
+            <div class="ln"><span class="p">$</span> git clone https://github.com/perminder-klair/locca.git</div>
+            <div class="ln"><span class="p">$</span> cd locca</div>
+            <div class="ln"><span class="p">$</span> npm install &amp;&amp; npm run build</div>
+            <div class="ln"><span class="p">$</span> npm link <span class="c"># symlinks `locca` into your PATH</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PI CALLOUT ============ -->
+    <section aria-labelledby="pi-title">
+      <div class="wrap">
+        <div class="callout">
+          <div>
+            <p class="eyebrow" style="margin-bottom:8px">Bonus</p>
+            <h3 id="pi-title">One command into the <a href="https://pi.dev" target="_blank" rel="noopener" style="color:var(--amber)">pi</a> coding agent.</h3>
+            <p>
+              <code>locca pi qwen</code> fuzzy-matches the first
+              <code>*qwen*.gguf</code> in your models dir, brings up the
+              server if it's not already running, and registers itself as a
+              custom OpenAI-compatible provider in
+              <code>~/.pi/agent/models.json</code>. Switch model, switch
+              brain — <code>locca switch llama-3.1-70b</code>.
+            </p>
+          </div>
+          <div class="pi-mark" aria-hidden="true">π</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap footer-inner">
+      <span>© 2026 · MIT licensed · built on <a href="https://github.com/ggml-org/llama.cpp" target="_blank" rel="noopener" style="color:var(--fg-mute)">llama.cpp</a></span>
+      <div class="footer-links">
+        <a href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener">github</a>
+        <a href="https://www.npmjs.com/package/locca" target="_blank" rel="noopener">npm</a>
+        <a href="https://pi.dev" target="_blank" rel="noopener">pi.dev</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // copy-to-clipboard for hero install bar
+    (function () {
+      const btn = document.getElementById('copyInstall');
+      const cmd = document.getElementById('installCmd');
+      if (!btn || !cmd || !navigator.clipboard) return;
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(cmd.textContent.trim());
+          btn.classList.add('copied');
+          const prev = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(() => { btn.classList.remove('copied'); btn.textContent = prev; }, 1500);
+        } catch (_) { /* noop */ }
+      });
+    })();
+
+    // copy-to-clipboard for code blocks
+    document.querySelectorAll('.code-block .copy').forEach((b) => {
+      if (!navigator.clipboard) { b.style.display = 'none'; return; }
+      b.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(b.dataset.copy || '');
+          b.classList.add('copied');
+          const prev = b.textContent;
+          b.textContent = 'Copied';
+          setTimeout(() => { b.classList.remove('copied'); b.textContent = prev; }, 1400);
+        } catch (_) {}
+      });
+    });
+
+    // hero typing animation (respects prefers-reduced-motion)
+    (function () {
+      const target = document.getElementById('typed');
+      const after = document.getElementById('afterTyped');
+      if (!target || !after) return;
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const text = 'locca';
+      if (reduced) {
+        target.textContent = text;
+        after.hidden = false;
+        return;
+      }
+      let i = 0;
+      function step() {
+        target.textContent = text.slice(0, ++i);
+        if (i < text.length) {
+          setTimeout(step, 90 + Math.random() * 70);
+        } else {
+          setTimeout(() => { after.hidden = false; }, 380);
+        }
+      }
+      setTimeout(step, 600);
+    })();
+  </script>
+</body>
+</html>
