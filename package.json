@@ -9,7 +9,6 @@
   "files": [
     "bin",
     "dist",
-    ".claude/skills",
     "CLAUDE.md",
     "README.md",
     "LICENSE"
