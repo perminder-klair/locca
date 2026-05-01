@@ -111,7 +111,7 @@ export async function runSetup(): Promise<void> {
   // pi skills / extensions — off by default (locca passes --no-skills /
   // --no-extensions). Enable for users who want pi's full agentic surface.
   const piSkills = await p.confirm({
-    message: "Enable pi's built-in skills?",
+    message: "Enable pi's skills?",
     initialValue: existing.piSkills ?? false,
   });
   exitIfCancelled(piSkills);

@@ -1,7 +1,7 @@
 # locca
 
 A TUI around [llama.cpp](https://github.com/ggml-org/llama.cpp) for running,
-managing, and benchmarking local GGUF models — and launching the
+managing, and benchmarking local GGUF models and launching the
 [`pi`](https://pi.dev) coding agent against your local server.
 
 https://github.com/user-attachments/assets/8b451763-bc8a-4707-96f9-9bc78cf6de25
@@ -65,7 +65,7 @@ locca download [user/repo]     # pull a GGUF from HuggingFace (catalog-aware rec
 locca search   [query]         # search HuggingFace for GGUF models
 locca delete                   # remove a model directory
 locca stop                     # stop the running server
-locca config [get|set|reset|list|path]   # view / edit ~/.locca/config.json
+locca config                   # view / edit ~/.locca/config.json
 locca setup                    # re-run the setup wizard
 locca help                     # full command listing
 ```
