@@ -660,16 +660,14 @@
         <div>
           <span class="pill"><span class="pulse" aria-hidden="true"></span> Local-first</span>
           <h1 id="hero-title" class="headline">
-            Run agent locally.<br />Download, <em>switch</em>, repeat.
+            Run agents locally.<br />Download, <em>switch</em>, repeat.
           </h1>
           <p class="lede">
-            <strong translate="no">locca</strong> sits on top of your
-            <code translate="no">llama.cpp</code> setup with one-command model
-            switching, defaults that work on iGPU / shared-VRAM machines,
-            and OpenAI-compatible endpoints printed for the taking — ships
-            with the
+            One command to download a GGUF, start
+            <code translate="no">llama.cpp</code>, and wire it into the
             <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">pi</a>
-            coding agent wired up to whatever GGUF you just downloaded.
+            coding agent (or any OpenAI-compatible client). Switch models
+            without touching a flag.
           </p>
 
           <div class="cta-row">
@@ -718,20 +716,19 @@
         <p class="eyebrow">Why locca</p>
         <h2 id="features-title">Defaults that respect your hardware.</h2>
         <p class="section-lede">
-          Most local-LLM tools either hide llama.cpp behind a wrapper or
-          expose every flag at once. locca ships defaults that actually
-          work on shared-VRAM iGPUs.
+          Most local-LLM tools either bury llama.cpp under abstraction or
+          dump every flag in your lap. locca picks defaults that work.
+          When you want to override them, the flags are right there.
         </p>
 
         <div class="features">
           <div class="feature">
             <div class="glyph" aria-hidden="true">⌁</div>
-            <h3>Tuned out of the box</h3>
+            <h3>Just runs</h3>
             <p>
-              Vulkan, <code translate="no">--flash-attn on</code>, <code translate="no">q8_0</code> KV cache,
-              <code translate="no">--parallel 1</code>, <code translate="no">--batch-size 1024</code>,
-              <code translate="no">--jinja</code>. A 7–9B model at 128k context fits on a
-              16&nbsp;GB shared-VRAM iGPU.
+              No flag spelunking. locca starts <code translate="no">llama.cpp</code>
+              with the right knobs (flash attention, quantized KV cache,
+              batch sizing) so models load and respond on the first try.
             </p>
           </div>
           <div class="feature">
@@ -748,11 +745,10 @@
             <div class="glyph" aria-hidden="true">π</div>
             <h3>The fast, light stack</h3>
             <p>
-              <code translate="no">llama.cpp</code> is the leanest local inference runtime;
+              <code translate="no">llama.cpp</code> is small and fast.
               <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">pi</a>
-              is the smallest agent that actually does coding tools. Both stay
-              out of your VRAM so the <em style="font-style:normal;color:var(--fg)">model</em>
-              gets the budget.
+              is the rare coding agent that doesn't blow through context,
+              which matters a lot when your model only has 32k to spare.
             </p>
           </div>
         </div>
@@ -763,39 +759,34 @@
     <section id="install" aria-labelledby="install-title">
       <div class="wrap">
         <p class="eyebrow">Get going</p>
-        <h2 id="install-title">Install in two steps.</h2>
+        <h2 id="install-title">Install.</h2>
         <p class="section-lede">
-          locca drives <code translate="no" style="font-family:var(--mono)">llama.cpp</code>
-          — install that first, then locca on top. First run launches a
-          wizard that finishes config for you and prints the exact install
-          hint for your distro if <code translate="no" style="font-family:var(--mono)">llama.cpp</code>
-          isn’t on <code translate="no" style="font-family:var(--mono)">$PATH</code>.
+          One command, then a wizard. locca picks a models folder with
+          you, downloads a starter GGUF, and installs the pi coding
+          agent.
         </p>
 
-        <div class="install-grid">
-          <div class="code-block">
-            <div class="h">1 · install llama.cpp</div>
-            <div class="ln"><span class="c"># use your platform’s package</span></div>
-            <div class="ln"><span class="c"># manager — brew, pacman, apt,</span></div>
-            <div class="ln"><span class="c"># dnf, zypper, apk. Or build</span></div>
-            <div class="ln"><span class="c"># from source.</span></div>
-            <div class="ln">&nbsp;</div>
-            <div class="ln"><span class="c"># locca setup prints the exact</span></div>
-            <div class="ln"><span class="c"># line for your distro if it’s</span></div>
-            <div class="ln"><span class="c"># missing.</span></div>
-          </div>
+        <div class="code-block" style="max-width:640px">
+          <button class="copy" data-copy="npm install -g @zeiq/locca && locca" type="button">Copy</button>
+          <div class="h">install &amp; run</div>
+          <div class="ln"><span class="p">$</span> npm install -g @zeiq/locca &amp;&amp; locca</div>
+          <div class="ln">&nbsp;</div>
+          <div class="ln"><span class="c"># first run launches a wizard that:</span></div>
+          <div class="ln"><span class="c">#   1. picks a models folder</span></div>
+          <div class="ln"><span class="c">#   2. tunes port, ctx, threads, VRAM cap</span></div>
+          <div class="ln"><span class="c">#   3. offers a starter GGUF download</span></div>
+          <div class="ln"><span class="c">#   4. installs the pi coding agent</span></div>
+          <div class="ln">&nbsp;</div>
+          <div class="ln"><span class="c"># re-run anytime: `locca setup`</span></div>
+        </div>
 
-          <div class="code-block">
-            <button class="copy" data-copy="npm install -g @zeiq/locca" type="button">Copy</button>
-            <div class="h">2 · install locca</div>
-            <div class="ln"><span class="p">$</span> npm install -g @zeiq/locca</div>
-            <div class="ln"><span class="p">$</span> locca <span class="c"># first run = wizard</span></div>
-            <div class="ln">&nbsp;</div>
-            <div class="ln"><span class="c"># or run from source:</span></div>
-            <div class="ln"><span class="p">$</span> git clone …/locca</div>
-            <div class="ln"><span class="p">$</span> npm install &amp;&amp; npm run build</div>
-            <div class="ln"><span class="p">$</span> npm link</div>
-          </div>
+        <div class="code-block" style="max-width:640px;margin-top:14px">
+          <div class="h">prerequisite · llama.cpp</div>
+          <div class="ln"><span class="c"># install via your package manager:</span></div>
+          <div class="ln"><span class="c">#   brew, pacman, apt, dnf, zypper, apk</span></div>
+          <div class="ln">&nbsp;</div>
+          <div class="ln"><span class="c"># or skip ahead — locca prints the exact</span></div>
+          <div class="ln"><span class="c"># install line for your distro on first run.</span></div>
         </div>
       </div>
     </section>
