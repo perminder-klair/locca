@@ -1,0 +1,52 @@
+FROM ubuntu:24.04
+RUN apt-get update -qq \
+ && apt-get install -y -qq curl ca-certificates \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null \
+ && apt-get install -y -qq nodejs \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /locca
+COPY . .
+RUN npm install && npm run build && npm link
+
+# Helper for hosts where the prebuilt's CPU-backend HWCAP probe rejects the
+# runtime CPU (Docker Desktop on Apple Silicon emulates an aarch64 / x86_64
+# CPU whose HWCAP doesn't match any of llama.cpp's per-microarch CPU shims).
+# Inside the container, run `build-llama` to compile llama.cpp from source
+# with GGML_NATIVE=ON and place llama-server on PATH.
+RUN cat > /usr/local/bin/build-llama <<'SH' && chmod +x /usr/local/bin/build-llama
+#!/usr/bin/env bash
+set -euo pipefail
+echo ">>> installing build deps..."
+apt-get update -qq
+apt-get install -y -qq cmake build-essential pkg-config libcurl4-openssl-dev git >/dev/null
+echo ">>> cloning llama.cpp..."
+rm -rf /tmp/llama-src
+git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama-src >/dev/null
+echo ">>> building (GGML_NATIVE=ON, ~3-8 min)..."
+cmake -S /tmp/llama-src -B /tmp/llama-src/build \
+  -DGGML_NATIVE=ON -DLLAMA_CURL=ON -DBUILD_SHARED_LIBS=OFF >/dev/null
+cmake --build /tmp/llama-src/build -j --target llama-server llama-cli llama-bench >/dev/null
+install -m755 /tmp/llama-src/build/bin/llama-server /usr/local/bin/
+install -m755 /tmp/llama-src/build/bin/llama-cli    /usr/local/bin/
+install -m755 /tmp/llama-src/build/bin/llama-bench  /usr/local/bin/
+rm -rf /tmp/llama-src
+
+# If the wizard already wrote llamaServer/Cli/Bench/Bundled pointing at the
+# broken prebuilt, drop those keys so loadConfig() falls back to the default
+# 'llama-server' (PATH lookup) which now resolves to the source build.
+node -e '
+  const fs = require("fs"), os = require("os"), p = os.homedir() + "/.locca/config.json";
+  if (!fs.existsSync(p)) process.exit(0);
+  const cfg = JSON.parse(fs.readFileSync(p, "utf8"));
+  for (const k of ["llamaServer","llamaCli","llamaBench","llamaBundled"]) delete cfg[k];
+  fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
+  console.log(">>> reset llama* config keys; PATH lookup will pick up /usr/local/bin/llama-server");
+'
+
+echo ""
+echo ">>> done. llama-server on PATH:"
+which llama-server && llama-server --version 2>&1 | head -2
+SH
+
+WORKDIR /root
+CMD ["bash"]

@@ -1,0 +1,6 @@
+FROM node:20
+WORKDIR /locca
+COPY . .
+RUN npm install && npm run build && npm link
+WORKDIR /root
+CMD ["bash"]

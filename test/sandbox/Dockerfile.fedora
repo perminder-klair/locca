@@ -1,0 +1,7 @@
+FROM fedora:latest
+RUN dnf install -y -q nodejs npm tar unzip >/dev/null
+WORKDIR /locca
+COPY . .
+RUN npm install && npm run build && npm link
+WORKDIR /root
+CMD ["bash"]

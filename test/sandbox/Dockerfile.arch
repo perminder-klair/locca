@@ -1,0 +1,7 @@
+FROM archlinux:latest
+RUN pacman -Sy --noconfirm nodejs npm tar unzip >/dev/null
+WORKDIR /locca
+COPY . .
+RUN npm install && npm run build && npm link
+WORKDIR /root
+CMD ["bash"]

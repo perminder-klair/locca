@@ -1,0 +1,7 @@
+FROM alpine:3.20
+RUN apk add --no-cache nodejs npm bash tar unzip >/dev/null
+WORKDIR /locca
+COPY . .
+RUN npm install && npm run build && npm link
+WORKDIR /root
+CMD ["bash"]

@@ -1,0 +1,46 @@
+# Optional: docker-compose front-end for the sandbox.
+#
+# Compose can't trivially use the git-archive build trick (it builds from a
+# fixed context), so this file references images already built by sandbox.sh.
+# Build first, then `docker compose run` for an interactive shell.
+#
+# Build:
+#   ./sandbox.sh build debian              # or build-all
+#
+# Run:
+#   docker compose -f test/sandbox/compose.yaml run --rm debian
+#   docker compose -f test/sandbox/compose.yaml run --rm ubuntu
+#   docker compose -f test/sandbox/compose.yaml run --rm arch
+#   docker compose -f test/sandbox/compose.yaml run --rm fedora
+#   docker compose -f test/sandbox/compose.yaml run --rm alpine
+
+services:
+  debian:
+    image: locca-test-debian
+    stdin_open: true
+    tty: true
+    command: bash
+
+  ubuntu:
+    image: locca-test-ubuntu
+    stdin_open: true
+    tty: true
+    command: bash
+
+  arch:
+    image: locca-test-arch
+    stdin_open: true
+    tty: true
+    command: bash
+
+  fedora:
+    image: locca-test-fedora
+    stdin_open: true
+    tty: true
+    command: bash
+
+  alpine:
+    image: locca-test-alpine
+    stdin_open: true
+    tty: true
+    command: bash
