@@ -294,11 +294,7 @@ function entryId(family: CatalogFamily, size: CatalogSize, build: CatalogBuild):
   return slug;
 }
 
-function makeEntry(
-  family: CatalogFamily,
-  size: CatalogSize,
-  build: CatalogBuild,
-): CatalogEntry {
+function makeEntry(family: CatalogFamily, size: CatalogSize, build: CatalogBuild): CatalogEntry {
   return {
     id: entryId(family, size, build),
     family,
@@ -333,9 +329,7 @@ export function findEntryById(id: string): CatalogEntry | undefined {
  */
 export function findEntryByFilename(filename: string): CatalogEntry | undefined {
   const base = filename.split('/').pop()?.toLowerCase() ?? filename.toLowerCase();
-  return allEntries({ includeDeprecated: true }).find(
-    (e) => e.build.hfFile.toLowerCase() === base,
-  );
+  return allEntries({ includeDeprecated: true }).find((e) => e.build.hfFile.toLowerCase() === base);
 }
 
 /** Find the family that owns a given HF repo (any quant). */
@@ -349,9 +343,7 @@ export function findFamilyByRepo(repo: string): CatalogFamily | undefined {
 /** All entries belonging to a given HF repo (one per quant). */
 export function entriesForRepo(repo: string): CatalogEntry[] {
   const r = repo.toLowerCase();
-  return allEntries({ includeDeprecated: true }).filter(
-    (e) => e.build.hfRepo.toLowerCase() === r,
-  );
+  return allEntries({ includeDeprecated: true }).filter((e) => e.build.hfRepo.toLowerCase() === r);
 }
 
 export function familyOverhead(family: CatalogFamily): number {

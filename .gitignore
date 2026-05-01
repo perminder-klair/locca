@@ -11,5 +11,9 @@ npm-debug.log*
 *.swp
 *~
 .DS_Store
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.zed/*
+!.zed/settings.json
 .idea/

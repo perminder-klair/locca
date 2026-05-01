@@ -81,22 +81,17 @@ function probeNvidia(): GpuInfo[] {
 }
 
 function probeRocm(): GpuInfo[] {
-  const r = spawnSync(
-    'rocm-smi',
-    ['--showproductname', '--showmeminfo', 'vram', '--json'],
-    { encoding: 'utf8', timeout: 2000 },
-  );
+  const r = spawnSync('rocm-smi', ['--showproductname', '--showmeminfo', 'vram', '--json'], {
+    encoding: 'utf8',
+    timeout: 2000,
+  });
   if (r.status !== 0 || !r.stdout) return [];
   try {
     const parsed = JSON.parse(r.stdout) as Record<string, Record<string, string>>;
     const out: GpuInfo[] = [];
     for (const [card, fields] of Object.entries(parsed)) {
       if (!card.startsWith('card')) continue;
-      const name =
-        fields['Card Series'] ??
-        fields['Card SKU'] ??
-        fields['Device Name'] ??
-        card;
+      const name = fields['Card Series'] ?? fields['Card SKU'] ?? fields['Device Name'] ?? card;
       const total = fields['VRAM Total Memory (B)'];
       const used = fields['VRAM Total Used Memory (B)'];
       const totalMB = total ? Math.round(parseInt(total, 10) / 1024 / 1024) : undefined;
@@ -105,8 +100,7 @@ function probeRocm(): GpuInfo[] {
         vendor: 'amd',
         name,
         vramTotalMB: totalMB,
-        vramFreeMB:
-          totalMB !== undefined && usedMB !== undefined ? totalMB - usedMB : undefined,
+        vramFreeMB: totalMB !== undefined && usedMB !== undefined ? totalMB - usedMB : undefined,
         source: 'rocm-smi',
       });
     }

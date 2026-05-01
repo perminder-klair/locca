@@ -83,9 +83,7 @@ export async function api(): Promise<void> {
   console.log();
 }
 
-async function probeReachableUrls(
-  port: number,
-): Promise<{ lan: string[]; tailscale: string[] }> {
+async function probeReachableUrls(port: number): Promise<{ lan: string[]; tailscale: string[] }> {
   const addrs = networkAddresses();
   const probe = async (ip: string): Promise<string | null> => {
     try {
@@ -98,9 +96,7 @@ async function probeReachableUrls(
     }
   };
   const [lan, tailscale] = await Promise.all([
-    Promise.all(addrs.lan.map(probe)).then((arr) =>
-      arr.filter((x): x is string => x !== null),
-    ),
+    Promise.all(addrs.lan.map(probe)).then((arr) => arr.filter((x): x is string => x !== null)),
     Promise.all(addrs.tailscale.map(probe)).then((arr) =>
       arr.filter((x): x is string => x !== null),
     ),

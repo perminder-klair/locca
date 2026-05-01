@@ -96,8 +96,7 @@ export function renderBench(rows: BenchRow[]): void {
   const tg = rows.find((r) => (r.n_gen ?? 0) > 0);
 
   const paramsB = head.model_n_params != null ? (head.model_n_params / 1e9).toFixed(2) : '?';
-  const sizeGB =
-    head.model_size != null ? (head.model_size / 1024 / 1024 / 1024).toFixed(2) : '?';
+  const sizeGB = head.model_size != null ? (head.model_size / 1024 / 1024 / 1024).toFixed(2) : '?';
   const modelType = head.model_type ?? '(unknown model type)';
   const backend = head.backends ?? '?';
   const ngl = head.n_gpu_layers ?? '?';

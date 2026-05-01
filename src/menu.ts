@@ -58,9 +58,18 @@ export async function menu(): Promise<void> {
         { value: 'pi', label: 'Pi       — coding agent (local)' },
         { value: 'serve', label: 'Serve    — start API server' },
         { value: 'stop', label: 'Stop     — stop server' },
-        { value: 'switch', label: 'Switch   — swap server to a different model' },
-        { value: 'doctor', label: 'Doctor   — health check (hardware, server, log, config)' },
-        { value: 'optimise', label: 'Optimise — ask pi to review and suggest tweaks' },
+        {
+          value: 'switch',
+          label: 'Switch   — swap server to a different model',
+        },
+        {
+          value: 'doctor',
+          label: 'Doctor   — health check (hardware, server, log, config)',
+        },
+        {
+          value: 'optimise',
+          label: 'Optimise — ask pi to review and suggest tweaks',
+        },
         { value: 'bench', label: 'Bench    — benchmark a model' },
         { value: 'logs', label: 'Logs     — tail server log' },
         { value: 'download', label: 'Download — pull from HuggingFace' },
@@ -238,7 +247,10 @@ async function switchModel(): Promise<void> {
   const picks = new Map<string, Pick>();
 
   if (installed.length > 0) {
-    options.push({ value: '__installed_header__', label: pc.dim('── Installed ──') });
+    options.push({
+      value: '__installed_header__',
+      label: pc.dim('── Installed ──'),
+    });
     picks.set('__installed_header__', { kind: 'browse' });
     for (const m of installed) {
       const id = `inst:${m.path}`;
@@ -256,7 +268,12 @@ async function switchModel(): Promise<void> {
         hint = `${formatGB(m.sizeBytes)} GB${tier ? ` · ${ctxLabel(tier)} ctx` : ''}`;
       }
       options.push({ value: id, label: `${m.name}${tag}`, hint });
-      picks.set(id, { kind: 'installed', path: m.path, mmproj: m.mmprojPath, name: m.name });
+      picks.set(id, {
+        kind: 'installed',
+        path: m.path,
+        mmproj: m.mmprojPath,
+        name: m.name,
+      });
     }
   }
 
@@ -273,10 +290,18 @@ async function switchModel(): Promise<void> {
       label: `${row.entry.family.name} ${row.entry.size.name} ${row.entry.build.quantization}`,
       hint: row.hint,
     });
-    picks.set(id, { kind: 'catalog', entry: row.entry, compatible: row.compatible });
+    picks.set(id, {
+      kind: 'catalog',
+      entry: row.entry,
+      compatible: row.compatible,
+    });
   }
 
-  options.push({ value: '__browse__', label: 'Browse HuggingFace…', hint: 'search by name' });
+  options.push({
+    value: '__browse__',
+    label: 'Browse HuggingFace…',
+    hint: 'search by name',
+  });
   picks.set('__browse__', { kind: 'browse' });
 
   const choice = await p.select<string>({
@@ -343,8 +368,7 @@ function catalogRows(budget: ReturnType<typeof memoryBudget>): CatalogRow[] {
   for (const variants of buckets.values()) {
     const compat = variants.filter((v) => isCompatible(v, budget));
     const pick =
-      defaultBuild(compat) ??
-      [...variants].sort((a, b) => a.build.fileSize - b.build.fileSize)[0]!;
+      defaultBuild(compat) ?? [...variants].sort((a, b) => a.build.fileSize - b.build.fileSize)[0]!;
     const compatible = compat.length > 0;
     const hint = compatible
       ? `${pc.green('fits')} — ${fitHint(pick, budget)}`

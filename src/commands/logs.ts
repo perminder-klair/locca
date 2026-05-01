@@ -7,9 +7,7 @@ const TAIL_LINES = 100;
 
 export async function logs(): Promise<void> {
   if (!existsSync(LOGFILE) || statSync(LOGFILE).size === 0) {
-    note(
-      `No log at ${LOGFILE} (only servers started via 'locca pi' write here).`,
-    );
+    note(`No log at ${LOGFILE} (only servers started via 'locca pi' write here).`);
     return;
   }
   console.log(pc.magenta(`Last ${TAIL_LINES} lines of ${LOGFILE}`));

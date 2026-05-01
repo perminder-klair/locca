@@ -11,7 +11,7 @@
  * the recommendations stay consistent across both tools.
  */
 import { type CatalogEntry, familyOverhead } from './catalog.js';
-import { type GpuInfo, type HardwareInfo } from './hardware.js';
+import type { GpuInfo, HardwareInfo } from './hardware.js';
 
 export const CTX_TIERS = [4096, 8192, 16384, 32768, 65536, 131072, 262144] as const;
 
@@ -148,10 +148,7 @@ export function incompatibilitySummary(
  * model's native ctxWindow. Returns undefined if the model can't run at the
  * minimum tier (incompatible at any ctx).
  */
-export function highestFittingCtx(
-  entry: CatalogEntry,
-  budget: MemoryBudget,
-): number | undefined {
+export function highestFittingCtx(entry: CatalogEntry, budget: MemoryBudget): number | undefined {
   let best: number | undefined;
   for (const ctx of CTX_TIERS) {
     if (ctx > entry.size.ctxWindow) break;

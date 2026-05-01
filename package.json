@@ -22,6 +22,9 @@
     "dev": "tsc --watch",
     "start": "node bin/locca",
     "site": "python3 -m http.server 8765 --bind 127.0.0.1 --directory docs",
+    "lint": "biome check",
+    "lint:fix": "biome check --write",
+    "format": "biome format --write",
     "prepublishOnly": "npm run build",
     "release": "npm publish --access=public"
   },
@@ -45,6 +48,7 @@
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.13",
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3"
   }

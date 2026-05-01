@@ -4,7 +4,7 @@ import { describePortOccupant, isPortInUse } from './server.js';
 
 /**
  * Refuse to spawn llama-server if `port` is already taken by a non-llama
- * service. Identifies the squatter (qBittorrent web UI, Jupyter, etc.) when
+ * service. Identifies the squatter (some web UI, Jupyter, etc.) when
  * possible so the error tells you what's actually conflicting.
  *
  * `serverStatus()` already attaches to anything serving `/health`, so this

@@ -7,12 +7,7 @@ import { requireLlama, requirePi } from '../deps.js';
 import { ctxForModel, findFirstMatch, pickModel, scanModels } from '../models.js';
 import { PI_PROVIDER_KEY, ensurePiModelsJson } from '../pi-config.js';
 import { refuseIfPortTaken } from '../preflight.js';
-import {
-  launchServer,
-  serverStatus,
-  stopServer,
-  waitReady,
-} from '../server.js';
+import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
 import { pc } from '../ui.js';
 
 export interface PiOpts {
@@ -113,13 +108,7 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
     console.log('Server ready.');
   }
 
-  await runPi(
-    cfg,
-    basename(model.path),
-    `http://127.0.0.1:${port}/v1`,
-    ctx,
-    forward,
-  );
+  await runPi(cfg, basename(model.path), `http://127.0.0.1:${port}/v1`, ctx, forward);
 }
 
 async function runPi(

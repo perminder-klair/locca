@@ -48,11 +48,7 @@ export function piModelsJsonPath(): string {
  * Pi 0.70+ requires custom providers to be registered here; the older
  * `--provider llamacpp` flag was removed.
  */
-export function ensurePiModelsJson(
-  modelId: string,
-  baseUrl: string,
-  contextWindow: number,
-): void {
+export function ensurePiModelsJson(modelId: string, baseUrl: string, contextWindow: number): void {
   const path = piModelsJsonPath();
 
   let config: PiModelsConfig = {};

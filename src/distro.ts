@@ -28,16 +28,13 @@ export function detectDistro(): Distro {
   try {
     const text = readFileSync('/etc/os-release', 'utf8');
     const get = (k: string) =>
-      text
-        .match(new RegExp(`^${k}=(.+)$`, 'm'))?.[1]
-        ?.replace(/^"(.*)"$/, '$1');
+      text.match(new RegExp(`^${k}=(.+)$`, 'm'))?.[1]?.replace(/^"(.*)"$/, '$1');
 
     const id = (get('ID') ?? '').toLowerCase();
     const idLike = (get('ID_LIKE') ?? '').toLowerCase().split(/\s+/);
     const pretty = get('PRETTY_NAME') ?? get('NAME') ?? id;
 
-    const matches = (...wanted: string[]) =>
-      wanted.some((w) => id === w || idLike.includes(w));
+    const matches = (...wanted: string[]) => wanted.some((w) => id === w || idLike.includes(w));
 
     if (matches('arch')) return { id: 'arch', prettyName: pretty };
     if (id === 'ubuntu') return { id: 'ubuntu', prettyName: pretty };
@@ -145,7 +142,6 @@ export function llamaInstallHint(d: Distro = detectDistro()): LlamaInstallHint {
         cmakeBackend: '-DGGML_METAL=ON',
         backendLabel: 'Metal',
       };
-    case 'unknown':
     default:
       return {
         detected: d.prettyName,
@@ -197,16 +193,12 @@ export function renderLlamaInstallHint(): string {
   }
 
   if (hint.sourceDepsLine) {
-    out.push(
-      `  ${pc.bold('Build from source')} ${pc.dim(`(${hint.backendLabel}):`)}`,
-    );
+    out.push(`  ${pc.bold('Build from source')} ${pc.dim(`(${hint.backendLabel}):`)}`);
     out.push(`    ${fmtCmd(hint.sourceDepsLine)}`);
     out.push(
       `    ${pc.cyan('git clone')} ${pc.underline('https://github.com/ggml-org/llama.cpp')} ~/llama.cpp`,
     );
-    out.push(
-      `    ${pc.cyan(`cmake -B ~/llama.cpp/build -S ~/llama.cpp ${hint.cmakeBackend}`)}`,
-    );
+    out.push(`    ${pc.cyan(`cmake -B ~/llama.cpp/build -S ~/llama.cpp ${hint.cmakeBackend}`)}`);
     out.push(`    ${pc.cyan('cmake --build ~/llama.cpp/build -j')}`);
     out.push(
       `    ${fmtCmd('export PATH="$HOME/llama.cpp/build/bin:$PATH"        # this session')}`,

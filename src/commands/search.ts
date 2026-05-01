@@ -26,8 +26,8 @@ export async function searchHF(args: string[]): Promise<void> {
     return;
   }
 
-  const lines = results.map((r) =>
-    `${r.id.padEnd(55)}  ↓${String(r.downloads).padEnd(8)}  ♥ ${r.likes}`,
+  const lines = results.map(
+    (r) => `${r.id.padEnd(55)}  ↓${String(r.downloads).padEnd(8)}  ♥ ${r.likes}`,
   );
 
   const choice = await search<string>({

@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { type Stats, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import search from '@inquirer/search';
 import { findEntryByFilename } from './catalog.js';
@@ -23,9 +23,7 @@ export function scanModels(modelsDir: string): Model[] {
     const dir = dirname(path);
     let mmproj: string | undefined;
     try {
-      const sibling = readdirSync(dir).find(
-        (f) => /mmproj/i.test(f) && f.endsWith('.gguf'),
-      );
+      const sibling = readdirSync(dir).find((f) => /mmproj/i.test(f) && f.endsWith('.gguf'));
       if (sibling) mmproj = join(dir, sibling);
     } catch {
       // ignore
@@ -60,7 +58,7 @@ function walk(dir: string, fn: (path: string) => void): void {
   }
   for (const e of entries) {
     const full = join(dir, e);
-    let s;
+    let s: Stats;
     try {
       // statSync follows symlinks (matches `find -L` behaviour in the bash version)
       s = statSync(full);
@@ -77,10 +75,7 @@ export function modelLine(m: Model): string {
   return `${m.name.padEnd(48)}  ${formatGB(m.sizeBytes).padStart(6)} GB${tag}`;
 }
 
-export async function pickModel(
-  models: Model[],
-  message = 'Pick a model',
-): Promise<Model | null> {
+export async function pickModel(models: Model[], message = 'Pick a model'): Promise<Model | null> {
   if (models.length === 0) return null;
   const choice = await search<string>({
     message,

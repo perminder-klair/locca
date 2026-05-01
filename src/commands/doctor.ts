@@ -51,9 +51,7 @@ function renderHardware(r: DoctorReport): void {
     const vram = g.vramTotalMB
       ? `${(g.vramTotalMB / 1024).toFixed(1)} GiB${g.vramFreeMB !== undefined ? ` (${(g.vramFreeMB / 1024).toFixed(1)} GiB free)` : ''}`
       : pc.dim('VRAM unknown');
-    console.log(
-      `    GPU          ${g.name}  ${pc.dim(`[${g.vendor}, via ${g.source}]`)}`,
-    );
+    console.log(`    GPU          ${g.name}  ${pc.dim(`[${g.vendor}, via ${g.source}]`)}`);
     console.log(`                 ${vram}`);
   }
 }
@@ -139,11 +137,7 @@ function renderFindings(findings: Finding[]): void {
   }
   for (const f of findings) {
     const icon =
-      f.severity === 'error'
-        ? pc.red('✗')
-        : f.severity === 'warn'
-          ? pc.yellow('!')
-          : pc.cyan('i');
+      f.severity === 'error' ? pc.red('✗') : f.severity === 'warn' ? pc.yellow('!') : pc.cyan('i');
     console.log(`    ${icon} ${pc.bold(`[${f.section}]`)} ${f.title}`);
     if (f.detail) console.log(`        ${pc.dim(f.detail)}`);
     if (f.suggestion) console.log(`        ${pc.dim('→')} ${f.suggestion}`);

@@ -150,12 +150,9 @@ async function editField(field: Field, cfg: Config): Promise<void> {
     return;
   }
 
-  const placeholder =
-    current === undefined || current === null ? '' : String(current);
+  const placeholder = current === undefined || current === null ? '' : String(current);
   const v = await p.text({
-    message: field.optional
-      ? `${field.label} ${pc.dim('(empty to clear)')}`
-      : field.label,
+    message: field.optional ? `${field.label} ${pc.dim('(empty to clear)')}` : field.label,
     initialValue: placeholder,
     placeholder,
   });
@@ -222,9 +219,7 @@ function listCmd(): void {
   const width = Math.max(...SCHEMA.map((f) => f.key.length));
   console.log();
   for (const f of SCHEMA) {
-    console.log(
-      `  ${pc.cyan(f.key.padEnd(width))}  ${formatValue(cfg[f.key], f)}`,
-    );
+    console.log(`  ${pc.cyan(f.key.padEnd(width))}  ${formatValue(cfg[f.key], f)}`);
   }
   console.log();
   console.log(pc.dim(`  ${CONFIG_FILE}`));

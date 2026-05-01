@@ -1,8 +1,8 @@
-import * as readline from "node:readline";
-import * as p from "@clack/prompts";
-import pc from "picocolors";
+import * as readline from 'node:readline';
+import * as p from '@clack/prompts';
+import pc from 'picocolors';
 
-export function header(title = "locca  ·  local inference") {
+export function header(title = 'locca  ·  local inference') {
   console.log();
   console.log(`  ${pc.magenta(pc.bold(title))}`);
   console.log();
@@ -15,23 +15,23 @@ export function header(title = "locca  ·  local inference") {
  */
 export function printBanner(opts: { tagline?: boolean } = {}): void {
   const lines = [
-    "",
-    `  ${pc.magenta("██╗      ██████╗  ██████╗ ██████╗ █████╗")}`,
-    `  ${pc.magenta("██║     ██╔═══██╗██╔════╝██╔════╝██╔══██╗")}`,
-    `  ${pc.magenta("██║     ██║   ██║██║     ██║     ███████║")}`,
-    `  ${pc.magenta("██║     ██║   ██║██║     ██║     ██╔══██║")}`,
-    `  ${pc.magenta("███████╗╚██████╔╝╚██████╗╚██████╗██║  ██║")}`,
-    `  ${pc.magenta("╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚═╝  ╚═╝")}`,
+    '',
+    `  ${pc.magenta('██╗      ██████╗  ██████╗ ██████╗ █████╗')}`,
+    `  ${pc.magenta('██║     ██╔═══██╗██╔════╝██╔════╝██╔══██╗')}`,
+    `  ${pc.magenta('██║     ██║   ██║██║     ██║     ███████║')}`,
+    `  ${pc.magenta('██║     ██║   ██║██║     ██║     ██╔══██║')}`,
+    `  ${pc.magenta('███████╗╚██████╔╝╚██████╗╚██████╗██║  ██║')}`,
+    `  ${pc.magenta('╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚═╝  ╚═╝')}`,
   ];
   if (opts.tagline) {
     lines.push(
-      "",
-      `  ${pc.dim("Run open-weight LLMs on your own hardware — llama.cpp, GGUFs,")}`,
-      `  ${pc.dim("pi agents. No cloud, no keys, your machine, your weights.")}`,
+      '',
+      `  ${pc.dim('Run open-weight LLMs on your own hardware — llama.cpp, GGUFs,')}`,
+      `  ${pc.dim('pi agents. No cloud, no keys, your machine, your weights.')}`,
     );
   }
-  lines.push("");
-  console.log(lines.join("\n"));
+  lines.push('');
+  console.log(lines.join('\n'));
 }
 
 export function ok(msg: string) {
@@ -64,13 +64,12 @@ export function section(title: string) {
  * still exits cleanly via `process.exit(0)` — that's what users expect from a
  * one-shot CLI invocation.
  */
-export const MENU_BACK = Symbol("locca:menu-back");
+export const MENU_BACK = Symbol('locca:menu-back');
 
 let menuMode = false;
 type KeypressKey = { name?: string; ctrl?: boolean; sequence?: string };
-let escKeypressListener:
-  | ((str: string | undefined, key: KeypressKey | undefined) => void)
-  | null = null;
+let escKeypressListener: ((str: string | undefined, key: KeypressKey | undefined) => void) | null =
+  null;
 
 /**
  * Toggle menu mode. While on:
@@ -93,18 +92,18 @@ export function setMenuMode(on: boolean): void {
     readline.emitKeypressEvents(process.stdin);
 
     escKeypressListener = (_str, key) => {
-      if (!menuMode || !key || key.name !== "escape") return;
+      if (!menuMode || !key || key.name !== 'escape') return;
       // Re-emit as Ctrl-C. Clack's onKeypress checks `str === '\x03'`,
       // so we must pass `\x03` as the first arg (str), not in `key.sequence`.
-      process.stdin.emit("keypress", "\x03", {
-        name: "c",
+      process.stdin.emit('keypress', '\x03', {
+        name: 'c',
         ctrl: true,
-        sequence: "\x03",
+        sequence: '\x03',
       });
     };
-    process.stdin.on("keypress", escKeypressListener);
+    process.stdin.on('keypress', escKeypressListener);
   } else if (!on && escKeypressListener) {
-    process.stdin.off("keypress", escKeypressListener);
+    process.stdin.off('keypress', escKeypressListener);
     escKeypressListener = null;
   }
 }
@@ -112,10 +111,10 @@ export function setMenuMode(on: boolean): void {
 export function exitIfCancelled<T>(value: T | symbol): asserts value is T {
   if (p.isCancel(value)) {
     if (menuMode) {
-      console.log(pc.dim("  ↩ back to menu"));
+      console.log(pc.dim('  ↩ back to menu'));
       throw MENU_BACK;
     }
-    p.cancel("Cancelled");
+    p.cancel('Cancelled');
     process.exit(0);
   }
 }

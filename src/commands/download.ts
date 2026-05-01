@@ -43,9 +43,7 @@ export async function download(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const ggufs = files
-    .filter((f) => f.endsWith('.gguf') && !/(^|\/)mmproj/i.test(f))
-    .sort();
+  const ggufs = files.filter((f) => f.endsWith('.gguf') && !/(^|\/)mmproj/i.test(f)).sort();
   if (ggufs.length === 0) {
     p.log.error(`No GGUF files found in ${repo}`);
     process.exit(1);
@@ -235,11 +233,7 @@ function basenameOnly(p: string): string {
   return i === -1 ? p : p.slice(i + 1);
 }
 
-async function downloadWithProgress(
-  repo: string,
-  file: string,
-  dest: string,
-): Promise<void> {
+async function downloadWithProgress(repo: string, file: string, dest: string): Promise<void> {
   let last = 0;
   const startTs = Date.now();
   await downloadFile(repo, file, dest, (got, total) => {
@@ -251,7 +245,7 @@ async function downloadWithProgress(
       const pct = ((got / total) * 100).toFixed(1);
       const gotGB = formatGB(got);
       const totalGB = formatGB(total);
-      const speed = ((got / 1024 / 1024) / Math.max(1, (now - startTs) / 1000)).toFixed(1);
+      const speed = (got / 1024 / 1024 / Math.max(1, (now - startTs) / 1000)).toFixed(1);
       process.stdout.write(`\r  ${pct.padStart(5)}%  ${gotGB}/${totalGB} GB  ${speed} MB/s   `);
     } else {
       process.stdout.write(`\r  ${formatGB(got)} GB   `);
@@ -292,9 +286,7 @@ function classifyQuant(file: string): string | undefined {
  * Pick a sensible default to star in the list. Preference order matches what
  * most users want for general use: Q4_K_M > Q4_K_S > Q5_K_M > Q4_0 > smallest.
  */
-function pickRecommended(
-  items: Array<{ file: string; size: number | null }>,
-): string | undefined {
+function pickRecommended(items: Array<{ file: string; size: number | null }>): string | undefined {
   const byTag = (re: RegExp) => items.find((i) => re.test(i.file.toUpperCase()))?.file;
   return (
     byTag(/\bQ4_K_M\b/) ??

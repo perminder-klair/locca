@@ -81,7 +81,7 @@ export async function serve(): Promise<void> {
 
   printStartupBanner(model, port, ctx);
 
-  const child = launchServer({
+  launchServer({
     llamaServer: cfg.llamaServer,
     modelPath: model.path,
     mmprojPath: model.mmprojPath,
@@ -95,9 +95,7 @@ export async function serve(): Promise<void> {
 
   const ready = await waitReady(port, 60);
   if (!ready) {
-    p.log.warn(
-      'Server did not become ready within 60s — run `locca logs` to see output.',
-    );
+    p.log.warn('Server did not become ready within 60s — run `locca logs` to see output.');
     return;
   }
 

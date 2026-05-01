@@ -1,10 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { CONFIG_FILE, loadConfig } from './config.js';
-import {
-  type HardwareInfo,
-  probeHardware,
-  readLlamaVersion,
-} from './hardware.js';
+import { type HardwareInfo, probeHardware, readLlamaVersion } from './hardware.js';
 import { ctxCapForBudget, scanModels } from './models.js';
 import { PI_PROVIDER_KEY, piModelsJsonPath } from './pi-config.js';
 import { LOGFILE, type ServerStatus, serverStatus } from './server.js';
@@ -95,9 +91,7 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
   };
 }
 
-async function fetchLiveCtx(
-  baseUrl: string,
-): Promise<{ ctx?: number; ctxTrain?: number } | null> {
+async function fetchLiveCtx(baseUrl: string): Promise<{ ctx?: number; ctxTrain?: number } | null> {
   try {
     const r = await fetch(`${baseUrl}/props`, {
       signal: AbortSignal.timeout(1500),
@@ -131,10 +125,7 @@ function inspectPiState(): PiState {
   }
   try {
     const cfg = JSON.parse(readFileSync(path, 'utf8')) as {
-      providers?: Record<
-        string,
-        { baseUrl?: string; models?: Array<{ id?: string }> }
-      >;
+      providers?: Record<string, { baseUrl?: string; models?: Array<{ id?: string }> }>;
     };
     const locca = cfg.providers?.[PI_PROVIDER_KEY];
     if (!locca) return { exists: true, hasLocca: false, loccaModels: [] };
@@ -142,9 +133,7 @@ function inspectPiState(): PiState {
       exists: true,
       hasLocca: true,
       loccaBaseUrl: locca.baseUrl,
-      loccaModels: (locca.models ?? [])
-        .map((m) => m.id)
-        .filter((id): id is string => Boolean(id)),
+      loccaModels: (locca.models ?? []).map((m) => m.id).filter((id): id is string => Boolean(id)),
     };
   } catch {
     return { exists: true, hasLocca: false, loccaModels: [] };
@@ -239,8 +228,7 @@ function collectFindings(args: CollectArgs): Finding[] {
       severity: 'error',
       section: 'models',
       title: `modelsDir does not exist: ${args.cfg.modelsDir}`,
-      suggestion:
-        'Create it (`mkdir -p`) or change `modelsDir` in ~/.locca/config.json.',
+      suggestion: 'Create it (`mkdir -p`) or change `modelsDir` in ~/.locca/config.json.',
     });
   } else if (args.models.length === 0) {
     out.push({
@@ -291,7 +279,7 @@ function collectFindings(args: CollectArgs): Finding[] {
         'locca caps auto-picked context size based on this hint. Without it, big models default to 128k ctx and may OOM at load time.',
       suggestion: vendorVram
         ? `Detected ${gb(vendorVram)} GiB VRAM — try \`locca config set vramBudgetMB ${vendorVram}\`.`
-        : 'Set it in `locca config` once you know your GPU\'s VRAM.',
+        : "Set it in `locca config` once you know your GPU's VRAM.",
     });
   }
   if (args.cfg.defaultPort < 1024) {
@@ -334,7 +322,7 @@ function collectFindings(args: CollectArgs): Finding[] {
         title: w.label,
         detail: w.example,
         suggestion:
-          'Update llama.cpp to the latest release; if that doesn\'t help, try `--no-jinja` (loses tool-calling support) or pick a different GGUF.',
+          "Update llama.cpp to the latest release; if that doesn't help, try `--no-jinja` (loses tool-calling support) or pick a different GGUF.",
       });
     } else if (/out of memory/i.test(w.label)) {
       out.push({
@@ -350,8 +338,7 @@ function collectFindings(args: CollectArgs): Finding[] {
         section: 'server log',
         title: w.label,
         detail: `${w.count} occurrence${w.count === 1 ? '' : 's'} — long sessions hit the ctx limit and got truncated.`,
-        suggestion:
-          'Increase ctx if VRAM allows, or start fresh sessions for very long tasks.',
+        suggestion: 'Increase ctx if VRAM allows, or start fresh sessions for very long tasks.',
       });
     }
   }
@@ -408,7 +395,7 @@ export function summariseForPrompt(report: DoctorReport): string {
     'You are reviewing a local llama.cpp deployment managed by `locca`.',
     'Identify suboptimal settings and concrete improvements that fit *this* hardware,',
     'config, and model set. Recommend only flags or values that exist in llama.cpp',
-    'and locca\'s config schema. Do not invent options.',
+    "and locca's config schema. Do not invent options.",
     'Do not suggest cloud providers or other backends — locca is local-only.',
     '',
     'OUTPUT RULES — follow strictly:',

@@ -1,35 +1,28 @@
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
-import * as p from "@clack/prompts";
-import { allEntries, type CatalogEntry, defaultBuild } from "./catalog.js";
-import {
-  fitHint,
-  incompatibilitySummary,
-  isCompatible,
-  memoryBudget,
-} from "./compat.js";
-import { downloadCatalogEntry } from "./commands/download.js";
-import { searchHF } from "./commands/search.js";
-import { CONFIG_FILE, loadConfig, saveConfig } from "./config.js";
-import { detectDistro, renderLlamaInstallHint } from "./distro.js";
-import { probeHardware } from "./hardware.js";
-import { scanModels } from "./models.js";
-import { exitIfCancelled, pc, printBanner } from "./ui.js";
-import { autoThreads, expandHome, have } from "./util.js";
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync } from 'node:fs';
+import * as p from '@clack/prompts';
+import { allEntries, type CatalogEntry, defaultBuild } from './catalog.js';
+import { fitHint, incompatibilitySummary, isCompatible, memoryBudget } from './compat.js';
+import { downloadCatalogEntry } from './commands/download.js';
+import { searchHF } from './commands/search.js';
+import { CONFIG_FILE, loadConfig, saveConfig } from './config.js';
+import { detectDistro, renderLlamaInstallHint } from './distro.js';
+import { probeHardware } from './hardware.js';
+import { scanModels } from './models.js';
+import { exitIfCancelled, pc, printBanner } from './ui.js';
+import { autoThreads, expandHome, have } from './util.js';
 
 export async function runSetup(): Promise<void> {
   printBanner({ tagline: true });
-  p.intro(
-    `${pc.bgMagenta(pc.black(pc.bold(" locca ")))}  ${pc.magenta("setup")}`,
-  );
+  p.intro(`${pc.bgMagenta(pc.black(pc.bold(' locca ')))}  ${pc.magenta('setup')}`);
   p.log.message(
     [
-      `${pc.magenta("▸")} Pick a models folder`,
-      `${pc.magenta("▸")} Confirm llama.cpp is installed ${pc.dim("(locca spawns it for you)")}`,
-      `${pc.magenta("▸")} Tune defaults ${pc.dim("(port, context, threads, VRAM budget)")}`,
-      "",
-      pc.dim("Saved to ~/.locca/config.json — re-run `locca setup` anytime."),
-    ].join("\n"),
+      `${pc.magenta('▸')} Pick a models folder`,
+      `${pc.magenta('▸')} Confirm llama.cpp is installed ${pc.dim('(locca spawns it for you)')}`,
+      `${pc.magenta('▸')} Tune defaults ${pc.dim('(port, context, threads, VRAM budget)')}`,
+      '',
+      pc.dim('Saved to ~/.locca/config.json — re-run `locca setup` anytime.'),
+    ].join('\n'),
   );
 
   const existing = loadConfig();
@@ -38,7 +31,7 @@ export async function runSetup(): Promise<void> {
 
   // Models directory
   const modelsDirIn = await p.text({
-    message: "Where do you keep .gguf models?",
+    message: 'Where do you keep .gguf models?',
     placeholder: existing.modelsDir,
     initialValue: existing.modelsDir,
   });
@@ -55,12 +48,12 @@ export async function runSetup(): Promise<void> {
       mkdirSync(modelsDir, { recursive: true });
       p.log.success(`Created ${modelsDir}`);
     } else {
-      p.log.warn("Skipped — locca will fail until this directory exists.");
+      p.log.warn('Skipped — locca will fail until this directory exists.');
     }
   }
 
   // ── llama.cpp presence check ────────────────────────────────────────
-  const llamaPresent = have("llama-server");
+  const llamaPresent = have('llama-server');
   const distro = detectDistro();
 
   if (llamaPresent) {
@@ -85,13 +78,13 @@ export async function runSetup(): Promise<void> {
   let threads = threadDefault;
 
   if (!useDefaults) {
-    const portIn = await p.text({ message: "Port", initialValue: "8080" });
+    const portIn = await p.text({ message: 'Port', initialValue: '8080' });
     exitIfCancelled(portIn);
     port = parseInt(portIn, 10) || 8080;
 
     const ctxIn = await p.text({
-      message: "Context size",
-      initialValue: "32768",
+      message: 'Context size',
+      initialValue: '32768',
     });
     exitIfCancelled(ctxIn);
     ctx = parseInt(ctxIn, 10) || 32768;
@@ -148,8 +141,8 @@ export async function runSetup(): Promise<void> {
   }
 
   // pi (coding agent)
-  if (have("pi")) {
-    p.log.success("pi (coding agent) found");
+  if (have('pi')) {
+    p.log.success('pi (coding agent) found');
   } else {
     const installPi = await p.confirm({
       message: "Install 'pi' coding agent now?",
@@ -161,7 +154,7 @@ export async function runSetup(): Promise<void> {
 
   if (!llamaPresent) {
     p.log.warn(
-      `${pc.bgYellow(pc.black(pc.bold(" ACTION REQUIRED ")))} ${pc.yellow(pc.bold("llama-server is not yet on PATH."))}`,
+      `${pc.bgYellow(pc.black(pc.bold(' ACTION REQUIRED ')))} ${pc.yellow(pc.bold('llama-server is not yet on PATH.'))}`,
     );
     p.log.message(renderLlamaInstallHint());
     p.log.message(
@@ -171,27 +164,25 @@ export async function runSetup(): Promise<void> {
     );
   }
 
-  p.outro(pc.green("Setup complete. Run `locca` to get started."));
+  p.outro(pc.green('Setup complete. Run `locca` to get started.'));
 }
 
-async function promptForVramBudget(
-  existing: number | undefined,
-): Promise<number | undefined> {
+async function promptForVramBudget(existing: number | undefined): Promise<number | undefined> {
   const initial = existing ?? 0;
   const choice = await p.select<number>({
-    message: "Approximate VRAM budget? (caps auto-picked context window)",
+    message: 'Approximate VRAM budget? (caps auto-picked context window)',
     initialValue: initial,
     options: [
       {
         value: 0,
-        label: "Skip / unlimited",
-        hint: "no cap on auto-picked ctx",
+        label: 'Skip / unlimited',
+        hint: 'no cap on auto-picked ctx',
       },
-      { value: 6 * 1024, label: "6 GB", hint: "caps ctx to 8k" },
-      { value: 8 * 1024, label: "8 GB", hint: "caps ctx to 16k" },
-      { value: 12 * 1024, label: "12 GB", hint: "caps ctx to 32k" },
-      { value: 16 * 1024, label: "16 GB", hint: "caps ctx to 64k" },
-      { value: 24 * 1024, label: "24 GB or more", hint: "no cap (full 128k)" },
+      { value: 6 * 1024, label: '6 GB', hint: 'caps ctx to 8k' },
+      { value: 8 * 1024, label: '8 GB', hint: 'caps ctx to 16k' },
+      { value: 12 * 1024, label: '12 GB', hint: 'caps ctx to 32k' },
+      { value: 16 * 1024, label: '16 GB', hint: 'caps ctx to 64k' },
+      { value: 24 * 1024, label: '24 GB or more', hint: 'no cap (full 128k)' },
     ],
   });
   exitIfCancelled(choice);
@@ -199,12 +190,10 @@ async function promptForVramBudget(
 }
 
 async function promptForFirstModel(): Promise<void> {
-  p.log.message("Your models directory is empty — locca needs a .gguf to run.");
+  p.log.message('Your models directory is empty — locca needs a .gguf to run.');
 
   const budget = memoryBudget(probeHardware());
-  p.log.message(
-    pc.dim(`  Detected ${budget.description} — using that to recommend a fit.`),
-  );
+  p.log.message(pc.dim(`  Detected ${budget.description} — using that to recommend a fit.`));
 
   // One row per (family, size) pick the catalog's preferred build (full-precision
   // when it fits, otherwise the smallest quant). Showing one row per quant would
@@ -212,11 +201,10 @@ async function promptForFirstModel(): Promise<void> {
   const rows = pickBuildsForFirstRunMenu(budget);
 
   while (true) {
-    type Choice = string | "browse" | "skip";
+    type Choice = string | 'browse' | 'skip';
     const choice = await p.select<Choice>({
-      message: "Grab a starter model now?",
-      initialValue:
-        rows.find((r) => r.compatible)?.entry.id ?? rows[0]?.entry.id ?? "skip",
+      message: 'Grab a starter model now?',
+      initialValue: rows.find((r) => r.compatible)?.entry.id ?? rows[0]?.entry.id ?? 'skip',
       options: [
         ...rows.map((r) => ({
           value: r.entry.id,
@@ -224,26 +212,24 @@ async function promptForFirstModel(): Promise<void> {
           hint: r.hint,
         })),
         {
-          value: "browse",
-          label: "Browse HuggingFace…",
-          hint: "search by name",
+          value: 'browse',
+          label: 'Browse HuggingFace…',
+          hint: 'search by name',
         },
         {
-          value: "skip",
-          label: "Skip — add models later with `locca download`",
+          value: 'skip',
+          label: 'Skip — add models later with `locca download`',
         },
       ],
     });
     exitIfCancelled(choice);
 
-    if (choice === "skip") {
-      p.log.message(
-        "Add a model anytime with `locca download <repo>` or `locca search`.",
-      );
+    if (choice === 'skip') {
+      p.log.message('Add a model anytime with `locca download <repo>` or `locca search`.');
       return;
     }
 
-    if (choice === "browse") {
+    if (choice === 'browse') {
       try {
         await searchHF([]);
       } catch (e) {
@@ -268,9 +254,7 @@ async function promptForFirstModel(): Promise<void> {
       await downloadCatalogEntry(picked.entry);
     } catch (e) {
       p.log.warn(`Model download failed: ${(e as Error).message}`);
-      p.log.message(
-        "You can retry later with `locca download` or `locca search`.",
-      );
+      p.log.message('You can retry later with `locca download` or `locca search`.');
     }
     return;
   }
@@ -289,9 +273,7 @@ interface FirstRunRow {
  * (full-precision preferred, then quantized fallback) sort first; incompatible
  * rows stay visible so users learn what their RAM can reach.
  */
-function pickBuildsForFirstRunMenu(
-  budget: ReturnType<typeof memoryBudget>,
-): FirstRunRow[] {
+function pickBuildsForFirstRunMenu(budget: ReturnType<typeof memoryBudget>): FirstRunRow[] {
   const entries = allEntries();
   // Group by (family.name, size.name) so we render one row per size.
   const buckets = new Map<string, CatalogEntry[]>();
@@ -313,8 +295,8 @@ function pickBuildsForFirstRunMenu(
 
     const compatible = compat.length > 0;
     const hint = compatible
-      ? `${pc.green("fits")} — ${fitHint(pick, budget)}`
-      : (incompatibilitySummary(pick, budget) ?? "too large");
+      ? `${pc.green('fits')} — ${fitHint(pick, budget)}`
+      : (incompatibilitySummary(pick, budget) ?? 'too large');
 
     rows.push({
       entry: pick,
@@ -334,37 +316,35 @@ function pickBuildsForFirstRunMenu(
 }
 
 async function tryInstallPi(): Promise<void> {
-  const pkg = "@mariozechner/pi-coding-agent";
-  if (have("mise")) {
-    const r = spawnSync("mise", ["use", "-g", `npm:${pkg}`], {
-      stdio: "inherit",
+  const pkg = '@mariozechner/pi-coding-agent';
+  if (have('mise')) {
+    const r = spawnSync('mise', ['use', '-g', `npm:${pkg}`], {
+      stdio: 'inherit',
     });
     if (r.status === 0) {
-      p.log.success("Installed pi via mise");
+      p.log.success('Installed pi via mise');
       return;
     }
-    p.log.warn("mise install failed, trying npm...");
+    p.log.warn('mise install failed, trying npm...');
   }
 
-  if (have("npm")) {
-    const r = spawnSync("npm", ["install", "-g", pkg], { stdio: "inherit" });
+  if (have('npm')) {
+    const r = spawnSync('npm', ['install', '-g', pkg], { stdio: 'inherit' });
     if (r.status === 0) {
-      p.log.success("Installed pi via npm");
+      p.log.success('Installed pi via npm');
       return;
     }
-    p.log.warn(
-      "npm install failed (may need sudo, or use a Node version manager).",
-    );
+    p.log.warn('npm install failed (may need sudo, or use a Node version manager).');
   } else {
-    p.log.warn("Neither mise nor npm found.");
+    p.log.warn('Neither mise nor npm found.');
   }
 
   p.log.message(
     [
-      "Manual install command:",
+      'Manual install command:',
       `  npm install -g ${pkg}`,
-      "",
-      "On Debian/Ubuntu the system nodejs may be too old — consider mise or NodeSource.",
-    ].join("\n"),
+      '',
+      'On Debian/Ubuntu the system nodejs may be too old — consider mise or NodeSource.',
+    ].join('\n'),
   );
 }

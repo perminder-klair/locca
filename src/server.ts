@@ -44,11 +44,7 @@ export type ServerStatus =
  * a non-llama service" (the probe-via-/health check can't tell them apart
  * since both return alive=false).
  */
-export function isPortInUse(
-  port: number,
-  host = '127.0.0.1',
-  timeoutMs = 500,
-): Promise<boolean> {
+export function isPortInUse(port: number, host = '127.0.0.1', timeoutMs = 500): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = createConnection({ port, host, timeout: timeoutMs });
     let settled = false;
@@ -191,9 +187,7 @@ function basename(p: string): string {
   return i === -1 ? p : p.slice(i + 1);
 }
 
-export type StopResult =
-  | { stopped: true; pid: number }
-  | { stopped: false; reason: string };
+export type StopResult = { stopped: true; pid: number } | { stopped: false; reason: string };
 
 /**
  * Stop the server locca started. Refuses to touch attached servers —

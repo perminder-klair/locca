@@ -38,6 +38,6 @@ export function loadConfig(): Config {
 export function saveConfig(patch: Partial<Config>): Config {
   mkdirSync(CONFIG_DIR, { recursive: true });
   const merged = { ...loadConfig(), ...patch };
-  writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2) + '\n', { mode: 0o600 });
+  writeFileSync(CONFIG_FILE, `${JSON.stringify(merged, null, 2)}\n`, { mode: 0o600 });
   return merged;
 }

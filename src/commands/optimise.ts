@@ -17,8 +17,12 @@ export async function optimise(): Promise<void> {
 
   header('locca  ·  optimise');
 
-  console.log(`  ${pc.yellow(pc.bold('Experimental'))}  ${pc.dim('— advice quality is bounded by your local model.')}`);
-  console.log(`  ${pc.dim('A 2-4B model will hallucinate flags. Run on a ≥7B instruct model for usable output.')}`);
+  console.log(
+    `  ${pc.yellow(pc.bold('Experimental'))}  ${pc.dim('— advice quality is bounded by your local model.')}`,
+  );
+  console.log(
+    `  ${pc.dim('A 2-4B model will hallucinate flags. Run on a ≥7B instruct model for usable output.')}`,
+  );
   console.log(`  ${pc.dim('Verify any suggested change against llama.cpp docs before applying.')}`);
   console.log();
 
