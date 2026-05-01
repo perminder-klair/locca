@@ -9,7 +9,7 @@ export async function searchHF(args: string[]): Promise<void> {
   if (!query) {
     const input = await p.text({
       message: 'Search HuggingFace',
-      placeholder: 'e.g. gemma uncensored gguf',
+      placeholder: 'e.g. qwen3.5',
     });
     exitIfCancelled(input);
     if (!input) return;

@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { freemem, loadavg, totalmem } from 'node:os';
 import * as p from '@clack/prompts';
 import { CONFIG_FILE, loadConfig } from '../config.js';
 import { pickModel, scanModels } from '../models.js';
@@ -44,6 +45,11 @@ export async function bench(): Promise<void> {
   const spinner = p.spinner();
   spinner.start('Running llama-bench (~30–60s)...');
 
+  const startedAt = Date.now();
+  const tick = setInterval(() => {
+    spinner.message(buildStatsLine(startedAt));
+  }, 1000);
+
   let stdout = '';
   let stderr = '';
   const exitCode = await new Promise<number | null>((resolve) => {
@@ -61,6 +67,7 @@ export async function bench(): Promise<void> {
     child.on('exit', (code) => resolve(code));
   });
 
+  clearInterval(tick);
   spinner.stop('Done');
 
   if (exitCode !== 0) {

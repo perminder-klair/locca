@@ -72,12 +72,14 @@ export async function download(args: string[]): Promise<void> {
   const recommendedFile = catalogPick?.hfFile ?? recommended;
 
   if (catalogPick) {
-    p.log.info(
-      `Recommended for your machine: ${pc.bold(catalogPick.quantization)} (${catalogPick.reason}).`,
+    p.note(
+      `${pc.bold(catalogPick.quantization)} (${catalogPick.reason}).`,
+      'Recommended for your machine',
     );
   } else if (recommended) {
-    p.log.info(
-      `Tip: ${pc.bold('Q4_K_M')} is the usual sweet spot (quality vs. size). ${pc.bold('Q8_0')} is near-lossless but ~2× larger; ${pc.bold('Q2_K/Q3_K')} are smallest but noticeably worse.`,
+    p.note(
+      `${pc.bold('Q4_K_M')} is the usual sweet spot (quality vs. size).\n${pc.bold('Q8_0')} is near-lossless but ~2× larger.\n${pc.bold('Q2_K/Q3_K')} are smallest but noticeably worse.`,
+      'Quantization tip',
     );
   }
 

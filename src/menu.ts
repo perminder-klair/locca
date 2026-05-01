@@ -54,26 +54,32 @@ export async function menu(): Promise<void> {
     // "back to menu" loop doesn't keep redrawing two screens of art.
     printBanner({ tagline: firstRender });
     firstRender = false;
-    await renderServerLine();
+    const serverRunning = await renderServerLine();
     renderSetupAlerts();
     console.log();
 
+    const options: { value: Action; label: string }[] = [
+      { value: 'pi', label: 'Pi       — coding agent (local)' },
+      { value: 'serve', label: 'Serve    — start API server' },
+    ];
+    if (serverRunning) {
+      options.push({ value: 'stop', label: 'Stop     — stop server' });
+      options.push({
+        value: 'switch',
+        label: 'Switch   — swap server to a different model',
+      });
+    }
+    options.push(
+      { value: 'download', label: 'Download — pull from HuggingFace' },
+      { value: 'search', label: 'Search   — find models on HuggingFace' },
+      { value: 'delete', label: 'Delete   — remove a model' },
+      { value: 'settings', label: 'Settings — doctor, optimise, bench, logs, install, config' },
+      { value: 'quit', label: 'Quit' },
+    );
+
     const action = await p.select<Action>({
       message: 'what next?',
-      options: [
-        { value: 'pi', label: 'Pi       — coding agent (local)' },
-        { value: 'serve', label: 'Serve    — start API server' },
-        { value: 'stop', label: 'Stop     — stop server' },
-        {
-          value: 'switch',
-          label: 'Switch   — swap server to a different model',
-        },
-        { value: 'download', label: 'Download — pull from HuggingFace' },
-        { value: 'search', label: 'Search   — find models on HuggingFace' },
-        { value: 'delete', label: 'Delete   — remove a model' },
-        { value: 'settings', label: 'Settings — doctor, optimise, bench, logs, install, config' },
-        { value: 'quit', label: 'Quit' },
-      ],
+      options,
     });
     // Esc on the top-level select = quit; nothing useful to "go back" to here.
     exitIfCancelled(action);
@@ -126,12 +132,12 @@ async function pauseUntilEnter(): Promise<void> {
  * for ctx + slot count — best-effort, missing fields are simply elided so a
  * llama-server build that doesn't expose them still renders cleanly.
  */
-async function renderServerLine(): Promise<void> {
+async function renderServerLine(): Promise<boolean> {
   const cfg = loadConfig();
   const s = await serverStatus(cfg);
   if (!s.running) {
     console.log(pc.dim('  ○ No server running'));
-    return;
+    return false;
   }
   const sourceLabel = s.source === 'pid' ? `running  (pid ${s.pid})` : 'attached';
   const head = `${sourceLabel}  llama-server on :${s.port}`;
@@ -148,6 +154,7 @@ async function renderServerLine(): Promise<void> {
   if (subBits.length) {
     console.log(`            ${pc.dim(subBits.join(' · '))}`);
   }
+  return true;
 }
 
 /**
@@ -215,50 +222,62 @@ async function runAction(action: Exclude<Action, 'quit'>): Promise<void> {
 }
 
 async function runSettingsMenu(): Promise<void> {
-  const choice = await p.select<SettingsAction>({
-    message: 'Settings',
-    options: [
-      {
-        value: 'doctor',
-        label: 'Doctor   — health check (hardware, server, log, config)',
-      },
-      {
-        value: 'optimise',
-        label: 'Optimise — ask pi to review and suggest tweaks',
-      },
-      { value: 'bench', label: 'Bench    — benchmark a model' },
-      { value: 'logs', label: 'Logs     — tail server log' },
-      {
-        value: 'install',
-        label: 'Install  — install / update llama.cpp and/or pi',
-      },
-      { value: 'config', label: 'Config   — view / edit settings' },
-      { value: 'back', label: '← Back' },
-    ],
-  });
-  exitIfCancelled(choice);
+  while (true) {
+    const choice = await p.select<SettingsAction>({
+      message: 'Settings',
+      options: [
+        {
+          value: 'doctor',
+          label: 'Doctor   — health check (hardware, server, log, config)',
+        },
+        {
+          value: 'optimise',
+          label: 'Optimise — ask pi to review and suggest tweaks',
+        },
+        { value: 'bench', label: 'Bench    — benchmark a model' },
+        { value: 'logs', label: 'Logs     — tail server log' },
+        {
+          value: 'install',
+          label: 'Install  — install / update llama.cpp and/or pi',
+        },
+        { value: 'config', label: 'Config   — view / edit settings' },
+        { value: 'back', label: '← Back' },
+      ],
+    });
+    // Esc on the Settings list itself = back to main menu (let MENU_BACK bubble).
+    exitIfCancelled(choice);
+    if (choice === 'back') return;
 
-  switch (choice) {
-    case 'doctor':
-      await doctor();
-      break;
-    case 'optimise':
-      await optimise();
-      break;
-    case 'bench':
-      await bench();
-      break;
-    case 'logs':
-      await logs();
-      break;
-    case 'install':
-      await runInstallMenu();
-      break;
-    case 'config':
-      await config([]);
-      break;
-    case 'back':
+    // Esc inside a settings sub-action = bounce back to this Settings list,
+    // not the main menu. Normal completion = return to main menu (so the
+    // outer pauseUntilEnter fires and the sub-action's output isn't
+    // immediately painted over by a settings redraw).
+    try {
+      switch (choice) {
+        case 'doctor':
+          await doctor();
+          break;
+        case 'optimise':
+          await optimise();
+          break;
+        case 'bench':
+          await bench();
+          break;
+        case 'logs':
+          await logs();
+          break;
+        case 'install':
+          await runInstallMenu();
+          break;
+        case 'config':
+          await config([]);
+          break;
+      }
       return;
+    } catch (e) {
+      if (!isCancelLike(e)) throw e;
+      // fall through to redraw the Settings list
+    }
   }
 }
 

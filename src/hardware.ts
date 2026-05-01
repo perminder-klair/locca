@@ -167,7 +167,7 @@ function classify(name: string): GpuVendor {
 
 /** Read `llama-server --version` output. Returns null on failure. */
 export function readLlamaVersion(binary: string): string | null {
-  const r = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 3000 });
+  const r = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 30000 });
   // llama-server prints version info to stderr and exits 1 — that's normal.
   const out = (r.stderr || r.stdout || '').trim();
   return out || null;

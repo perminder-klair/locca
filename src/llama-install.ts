@@ -361,7 +361,9 @@ export function locateBinaries(root: string): {
 
 export function verifyBinary(serverPath: string): boolean {
   if (!existsSync(serverPath)) return false;
-  const r = spawnSync(serverPath, ['--version'], { encoding: 'utf8', timeout: 5000 });
+  // Metal init on Apple Silicon can take 10+ seconds on first run before
+  // --version prints anything — give the probe plenty of headroom.
+  const r = spawnSync(serverPath, ['--version'], { encoding: 'utf8', timeout: 30000 });
   // llama-server prints version to stderr and exits 0 or 1 — both are fine
   // as long as we got *some* version string out.
   const out = (r.stderr || r.stdout || '').toLowerCase();

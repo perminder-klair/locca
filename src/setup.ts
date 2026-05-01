@@ -141,35 +141,19 @@ export async function runSetup(): Promise<void> {
   // Stored in MB; `undefined` means no cap (current behaviour).
   const vramBudgetMB = await promptForVramBudget(existing.vramBudgetMB);
 
-  // pi skills / extensions. Defaults: skills='lazy' (descriptions stripped
-  // from system prompt to save context on small models, /skill:<name> still
-  // works); extensions=true (cheap, enables nice tooling like project rules);
-  // context-files=false (AGENTS.md / CLAUDE.md can be huge on real projects).
-  const piSkills = await p.select<'off' | 'lazy' | 'on'>({
-    message: "Pi skills mode?",
-    initialValue: existing.piSkills ?? 'lazy',
-    options: [
-      {
-        value: 'lazy',
-        label: 'Lazy',
-        hint: 'recommended — /skill:<name> works, but descriptions stay out of the system prompt',
-      },
-      {
-        value: 'on',
-        label: 'On',
-        hint: "pi's default — descriptions in system prompt, model can auto-invoke",
-      },
-      { value: 'off', label: 'Off', hint: 'disable skills entirely' },
-    ],
-  });
-  exitIfCancelled(piSkills);
+  // Only pi context-files is asked here — skills mode and extensions stay
+  // at their defaults (lazy / on) and can be toggled later via `locca config`.
+  // Context-files is exposed because AGENTS.md / CLAUDE.md can be huge and
+  // blow out a small local model's context window.
+  p.note(
+    "Skills load lazily: /skill:<name> still works, but their descriptions are\nstripped from the system prompt to save context on smaller models.\nExtensions are enabled. Change either later with `locca config`.",
+    'Pi skills & extensions',
+  );
 
-  const piExtensions = await p.confirm({
-    message: "Enable pi's extensions?",
-    initialValue: existing.piExtensions ?? true,
-  });
-  exitIfCancelled(piExtensions);
-
+  p.note(
+    "Pi can load AGENTS.md / CLAUDE.md from your project as system context.\nLeaving this off saves tokens on smaller models — recommended unless you\nhave a big context window. Change later with `locca config`.",
+    'Pi context files',
+  );
   const piContextFiles = await p.confirm({
     message: "Enable pi's AGENTS.md / CLAUDE.md context files?",
     initialValue: existing.piContextFiles ?? false,
@@ -182,8 +166,6 @@ export async function runSetup(): Promise<void> {
     defaultCtx: ctx,
     defaultThreads: threads,
     vramBudgetMB,
-    piSkills,
-    piExtensions,
     piContextFiles,
   });
   p.log.success(`Wrote ${CONFIG_FILE}`);

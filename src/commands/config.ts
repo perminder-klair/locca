@@ -1,8 +1,12 @@
 import { existsSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { CONFIG_FILE, loadConfig, saveConfig } from '../config.js';
 import type { Config } from '../types.js';
 import { exitIfCancelled, p, pc } from '../ui.js';
 import { autoThreads, expandHome } from '../util.js';
+
+const TOTAL_CORES = cpus().length;
+const AUTO_THREADS = autoThreads();
 
 /**
  * Schema for every user-editable key in `Config`. Keep this in sync with
@@ -23,6 +27,11 @@ interface Field {
   hint?: string;
   /** For `kind: 'enum'` — allowed values (with optional hints). */
   choices?: { value: string; label?: string; hint?: string }[];
+  /**
+   * For `kind: 'number'` — common preset values shown as a select before
+   * falling back to text entry. Helps users who don't have a number in mind.
+   */
+  presets?: { value: number; label: string; hint?: string }[];
 }
 
 const SCHEMA: Field[] = [
@@ -33,12 +42,43 @@ const SCHEMA: Field[] = [
     hint: 'where .gguf files live',
   },
   { key: 'defaultPort', label: 'Default server port', kind: 'number' },
-  { key: 'defaultCtx', label: 'Default context size', kind: 'number' },
+  {
+    key: 'defaultCtx',
+    label: 'Default context size',
+    kind: 'number',
+    hint: 'tokens of conversation history the model can see',
+    presets: [
+      { value: 4096, label: '4k', hint: 'tiny — chat / quick edits, fits anything' },
+      { value: 8192, label: '8k', hint: 'small — short tasks, ~1× VRAM baseline' },
+      { value: 16384, label: '16k', hint: 'medium — multi-file edits' },
+      { value: 32768, label: '32k', hint: 'recommended default — coding agent workloads' },
+      { value: 65536, label: '64k', hint: 'large — repo-wide context, needs ≥16 GB unified/VRAM' },
+      { value: 131072, label: '128k', hint: 'long-doc / repo summarisation, heavy on KV cache' },
+      { value: 262144, label: '256k', hint: 'extreme — only with q8_0 KV cache + lots of RAM' },
+    ],
+  },
   {
     key: 'defaultThreads',
     label: 'CPU threads',
     kind: 'number',
-    hint: `auto = ${autoThreads()}`,
+    hint: `auto = ${AUTO_THREADS} (system has ${TOTAL_CORES} cores)`,
+    presets: [
+      {
+        value: AUTO_THREADS,
+        label: `Auto (${AUTO_THREADS})`,
+        hint: 'leave 2 cores for the OS — recommended',
+      },
+      {
+        value: Math.max(1, Math.floor(TOTAL_CORES / 2)),
+        label: `Half (${Math.max(1, Math.floor(TOTAL_CORES / 2))})`,
+        hint: 'good if you keep using the machine while llama runs',
+      },
+      {
+        value: TOTAL_CORES,
+        label: `All cores (${TOTAL_CORES})`,
+        hint: 'fastest but the system will feel sluggish',
+      },
+    ],
   },
   {
     key: 'llamaServer',
@@ -53,7 +93,15 @@ const SCHEMA: Field[] = [
     label: 'VRAM budget (MB)',
     kind: 'number',
     optional: true,
-    hint: 'caps auto-picked context window',
+    hint: 'caps auto-picked context window so 128k defaults don\'t OOM',
+    presets: [
+      { value: 6 * 1024, label: '6 GB', hint: 'caps ctx to 8k' },
+      { value: 8 * 1024, label: '8 GB', hint: 'caps ctx to 16k' },
+      { value: 12 * 1024, label: '12 GB', hint: 'caps ctx to 32k' },
+      { value: 16 * 1024, label: '16 GB', hint: 'caps ctx to 64k' },
+      { value: 24 * 1024, label: '24 GB', hint: 'caps ctx to 128k' },
+      { value: 32 * 1024, label: '32 GB', hint: 'caps ctx to 128k+' },
+    ],
   },
   {
     key: 'piSkills',
@@ -166,6 +214,46 @@ async function editField(field: Field, cfg: Config): Promise<void> {
     saveConfig({ [field.key]: v } as Partial<Config>);
     p.log.success(`${field.key} = ${v}`);
     return;
+  }
+
+  if (field.kind === 'number' && field.presets && field.presets.length > 0) {
+    const CUSTOM = '__custom__';
+    const CLEAR = '__clear__';
+    const opts: { value: string; label: string; hint?: string }[] = field.presets.map((preset) => ({
+      value: String(preset.value),
+      label: preset.label,
+      hint: preset.hint,
+    }));
+    if (field.optional) {
+      opts.push({ value: CLEAR, label: 'No cap', hint: 'clear this setting (use defaults)' });
+    }
+    opts.push({ value: CUSTOM, label: 'Custom…', hint: 'enter an exact value' });
+
+    const initialValue =
+      typeof current === 'number' && field.presets.some((preset) => preset.value === current)
+        ? String(current)
+        : opts[0]?.value;
+
+    const choice = await p.select<string>({
+      message: field.label,
+      initialValue,
+      options: opts,
+    });
+    exitIfCancelled(choice);
+
+    if (choice === CLEAR) {
+      saveConfig({ [field.key]: undefined } as Partial<Config>);
+      p.log.success(`${field.key} cleared`);
+      return;
+    }
+
+    if (choice !== CUSTOM) {
+      const parsed = Number(choice);
+      saveConfig({ [field.key]: parsed } as Partial<Config>);
+      p.log.success(`${field.key} = ${formatValue(parsed, field)}`);
+      return;
+    }
+    // fall through to text entry
   }
 
   const placeholder = current === undefined || current === null ? '' : String(current);
