@@ -1,11 +1,11 @@
 import { spawn } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
 import { loadConfig } from '../config.js';
 import { requireLlama, requirePi } from '../deps.js';
 import { ctxForModel, findFirstMatch, pickModel, scanModels } from '../models.js';
 import { PI_PROVIDER_KEY, ensurePiModelsJson } from '../pi-config.js';
+import { ensureStripSkillsExtension } from '../pi-extension.js';
 import { refuseIfPortTaken } from '../preflight.js';
 import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
 import { pc } from '../ui.js';
@@ -127,22 +127,27 @@ async function runPi(
   console.log(`Launching pi with ${modelId}...`);
   console.log();
 
-  const skillArgs: string[] = [];
-  if (cfg.piSkillDir) {
-    try {
-      if (existsSync(cfg.piSkillDir) && statSync(cfg.piSkillDir).isDirectory()) {
-        skillArgs.push('--skill', cfg.piSkillDir);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   const piArgs = ['--model', `${PI_PROVIDER_KEY}/${modelId}`];
-  if (!cfg.piSkills) piArgs.push('--no-skills');
+  // piSkills tri-state: 'off' disables entirely; 'lazy' loads skills but
+  // strips their descriptions from the system prompt via a bundled extension
+  // (slash commands still resolve); 'on' is pi's default.
+  const skillMode = cfg.piSkills ?? 'lazy';
+  if (skillMode === 'off') piArgs.push('--no-skills');
   if (!cfg.piExtensions) piArgs.push('--no-extensions');
   if (!cfg.piContextFiles) piArgs.push('--no-context-files');
-  piArgs.push(...skillArgs, ...forward);
+
+  if (skillMode === 'lazy' && cfg.piExtensions) {
+    // Lazy mode requires the extension host to be enabled — it's the only
+    // mechanism we have to reach into the system prompt. If extensions are
+    // off, fall back to 'on' behaviour and warn loudly.
+    piArgs.push('--extension', ensureStripSkillsExtension());
+  } else if (skillMode === 'lazy' && !cfg.piExtensions) {
+    p.log.warn(
+      "piSkills='lazy' requires piExtensions=true — skills will load normally. Run `locca config` to enable extensions.",
+    );
+  }
+
+  piArgs.push(...forward);
 
   const child = spawn('pi', piArgs, { stdio: 'inherit' });
   await new Promise<void>((resolve) => {

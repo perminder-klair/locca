@@ -13,7 +13,7 @@ import { autoThreads, expandHome } from '../util.js';
  * `optional: true` means an empty value clears the override (key is removed
  * from the on-disk config so `defaults()` takes over again).
  */
-type Kind = 'string' | 'path' | 'number' | 'boolean';
+type Kind = 'string' | 'path' | 'number' | 'boolean' | 'enum';
 
 interface Field {
   key: keyof Config;
@@ -21,6 +21,8 @@ interface Field {
   kind: Kind;
   optional?: boolean;
   hint?: string;
+  /** For `kind: 'enum'` — allowed values (with optional hints). */
+  choices?: { value: string; label?: string; hint?: string }[];
 }
 
 const SCHEMA: Field[] = [
@@ -54,12 +56,15 @@ const SCHEMA: Field[] = [
     hint: 'caps auto-picked context window',
   },
   {
-    key: 'piSkillDir',
-    label: 'Pi skill directory',
-    kind: 'path',
-    optional: true,
+    key: 'piSkills',
+    label: 'Pi skills mode',
+    kind: 'enum',
+    choices: [
+      { value: 'lazy', label: 'lazy', hint: '/skill:<name> works, descriptions hidden from system prompt' },
+      { value: 'on', label: 'on', hint: "pi's default — descriptions in system prompt" },
+      { value: 'off', label: 'off', hint: '--no-skills' },
+    ],
   },
-  { key: 'piSkills', label: 'Enable pi skills', kind: 'boolean' },
   { key: 'piExtensions', label: 'Enable pi extensions', kind: 'boolean' },
   { key: 'piContextFiles', label: 'Enable pi context files', kind: 'boolean' },
 ];
@@ -143,6 +148,19 @@ async function editField(field: Field, cfg: Config): Promise<void> {
     const v = await p.confirm({
       message: field.label,
       initialValue: Boolean(current),
+    });
+    exitIfCancelled(v);
+    saveConfig({ [field.key]: v } as Partial<Config>);
+    p.log.success(`${field.key} = ${v}`);
+    return;
+  }
+
+  if (field.kind === 'enum') {
+    const choices = field.choices ?? [];
+    const v = await p.select<string>({
+      message: field.label,
+      initialValue: typeof current === 'string' ? current : choices[0]?.value,
+      options: choices.map((c) => ({ value: c.value, label: c.label ?? c.value, hint: c.hint })),
     });
     exitIfCancelled(v);
     saveConfig({ [field.key]: v } as Partial<Config>);
@@ -263,11 +281,19 @@ function parseValue(raw: string, field: Field): unknown {
       if (['false', 'no', 'n', '0', 'off'].includes(v)) return false;
       throw new Error(`expected true/false, got: ${raw}`);
     }
+    case 'enum': {
+      const allowed = (field.choices ?? []).map((c) => c.value);
+      if (!allowed.includes(raw)) {
+        throw new Error(`expected one of ${allowed.join('|')}, got: ${raw}`);
+      }
+      return raw;
+    }
   }
 }
 
 function formatValue(v: unknown, field: Field): string {
   if (v === undefined || v === null) return pc.dim('<unset>');
   if (field.kind === 'boolean') return v ? pc.green('true') : pc.red('false');
+  if (field.kind === 'enum') return pc.cyan(String(v));
   return String(v);
 }

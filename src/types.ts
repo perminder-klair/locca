@@ -6,15 +6,23 @@ export interface Config {
   llamaServer: string;
   llamaCli: string;
   llamaBench: string;
-  piSkillDir?: string;
   /**
-   * Enable pi's built-in skills. Default false — locca passes `--no-skills`
-   * to keep pi focused on local-model coding without skill dispatch.
+   * Skill loading mode for pi:
+   *   - `'lazy'` (default): skills are discoverable and `/skill:<name>` slash
+   *     commands work, but their descriptions are stripped from the system
+   *     prompt to save context on small local models. Implemented via a tiny
+   *     bundled pi extension that strips the `<available_skills>` block from
+   *     the prompt at `before_agent_start`.
+   *   - `'on'`: skills loaded normally (descriptions in system prompt).
+   *   - `'off'`: pass `--no-skills`; skills neither auto-invoke nor slash-invoke.
+   *
+   * Legacy boolean values are coerced on load: `true` → `'on'`, `false` → `'off'`.
    */
-  piSkills?: boolean;
+  piSkills?: 'off' | 'lazy' | 'on';
   /**
-   * Enable pi's extensions. Default false — locca passes `--no-extensions`
-   * for the same reason as `piSkills`.
+   * Enable pi's extensions. Default true — pi extensions add tooling like
+   * project-rule discovery and custom commands without growing the system
+   * prompt much.
    */
   piExtensions?: boolean;
   /**

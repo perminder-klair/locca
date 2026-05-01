@@ -141,17 +141,32 @@ export async function runSetup(): Promise<void> {
   // Stored in MB; `undefined` means no cap (current behaviour).
   const vramBudgetMB = await promptForVramBudget(existing.vramBudgetMB);
 
-  // pi skills / extensions — off by default (locca passes --no-skills /
-  // --no-extensions). Enable for users who want pi's full agentic surface.
-  const piSkills = await p.confirm({
-    message: "Enable pi's skills?",
-    initialValue: existing.piSkills ?? false,
+  // pi skills / extensions. Defaults: skills='lazy' (descriptions stripped
+  // from system prompt to save context on small models, /skill:<name> still
+  // works); extensions=true (cheap, enables nice tooling like project rules);
+  // context-files=false (AGENTS.md / CLAUDE.md can be huge on real projects).
+  const piSkills = await p.select<'off' | 'lazy' | 'on'>({
+    message: "Pi skills mode?",
+    initialValue: existing.piSkills ?? 'lazy',
+    options: [
+      {
+        value: 'lazy',
+        label: 'Lazy',
+        hint: 'recommended — /skill:<name> works, but descriptions stay out of the system prompt',
+      },
+      {
+        value: 'on',
+        label: 'On',
+        hint: "pi's default — descriptions in system prompt, model can auto-invoke",
+      },
+      { value: 'off', label: 'Off', hint: 'disable skills entirely' },
+    ],
   });
   exitIfCancelled(piSkills);
 
   const piExtensions = await p.confirm({
     message: "Enable pi's extensions?",
-    initialValue: existing.piExtensions ?? false,
+    initialValue: existing.piExtensions ?? true,
   });
   exitIfCancelled(piExtensions);
 
