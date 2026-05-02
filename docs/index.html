@@ -687,6 +687,25 @@
       letter-spacing: -0.04em;
       opacity: 0.85;
     }
+    .sub-h {
+      font-size: clamp(20px, 2.4vw, 24px);
+      letter-spacing: -0.015em;
+      margin: 44px 0 10px;
+    }
+    .sub-lede {
+      color: var(--fg-mute);
+      max-width: 640px;
+      font-size: 15px;
+      margin: 0 0 22px;
+    }
+    .sub-lede code {
+      font-family: var(--mono);
+      font-size: 0.9em;
+      color: var(--fg);
+      background: var(--bg-soft-2);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
 
     /* ---------- footer ---------- */
     footer {
@@ -1054,6 +1073,34 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
             </p>
           </div>
           <div class="pi-mark" aria-hidden="true">π</div>
+        </div>
+
+        <h3 class="sub-h">Where pi keeps its stuff.</h3>
+        <p class="sub-lede">
+          Once <code translate="no">locca pi</code> drops you into the agent,
+          these are the paths worth knowing. Global config lives under
+          <code translate="no">~/.pi/agent/</code>; per-project overrides go in
+          <code translate="no">.pi/</code> at your repo root.
+        </p>
+
+        <ul class="cmd-grid">
+          <li class="cmd-row"><code translate="no">~/.pi/agent/settings.json</code><span>Model, theme, thinking level, retries, telemetry. Project overrides at <code translate="no" style="font-family:var(--mono)">.pi/settings.json</code>.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/models.json</code><span>Custom OpenAI-compatible providers. locca owns the <code translate="no" style="font-family:var(--mono)">locca</code> entry and rewrites it on every <code translate="no" style="font-family:var(--mono)">locca pi</code> — leave the rest alone.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/skills/</code><span>Drop in <a href="https://github.com/badlogic/pi-skills" target="_blank" rel="noopener" style="color:var(--teal)">pi-skills</a> packages — each one a folder with a <code translate="no" style="font-family:var(--mono)">SKILL.md</code>. Project skills also load from <code translate="no" style="font-family:var(--mono)">.pi/skills/</code> and ancestors up to the git root.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/AGENTS.md</code><span>Global instructions loaded at startup. Per-project <code translate="no" style="font-family:var(--mono)">AGENTS.md</code> files in cwd or any ancestor merge in too.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/SYSTEM.md</code><span>Replaces the default system prompt entirely. Use <code translate="no" style="font-family:var(--mono)">APPEND_SYSTEM.md</code> if you only want to tack things on.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/prompts/</code><span>Reusable prompt templates. Drop a <code translate="no" style="font-family:var(--mono)">foo.md</code> in here and run it mid-session with <code translate="no" style="font-family:var(--mono)">/foo</code>.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/extensions/</code><span>TypeScript modules registering custom tools, slash commands, and UI panels.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/keybindings.json</code><span>Override key bindings if the defaults clash with your terminal.</span></li>
+          <li class="cmd-row"><code translate="no">~/.pi/agent/sessions/</code><span>JSONL session logs grouped by working directory — handy for resuming or grepping a past chat.</span></li>
+        </ul>
+
+        <div class="code-block aside">
+          <button class="copy" data-copy="pi install git:https://github.com/badlogic/pi-skills" type="button">Copy</button>
+          <div class="h">tip <span class="dim-inline">— skills, AGENTS.md, and prompts hot-reload. Drop a file, run <code translate="no" style="font-family:var(--mono)">locca pi</code>, no restart needed.</span></div>
+          <div class="ln"><span class="p">$</span> pi install git:https://github.com/badlogic/pi-skills</div>
+          <div class="ln"><span class="c"># pulls a curated bundle into ~/.pi/agent/git/ and wires it</span></div>
+          <div class="ln"><span class="c"># into ~/.pi/agent/skills/. Browse the catalog at the repo above.</span></div>
         </div>
       </div>
     </section>
