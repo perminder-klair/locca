@@ -560,22 +560,65 @@
     .code-block .copy {
       position: absolute;
       top: 14px; right: 14px;
-      background: transparent;
-      border: 1px solid var(--line-strong);
-      color: var(--fg-faint);
+      background: var(--magenta-soft);
+      border: 1px solid var(--magenta);
+      color: var(--magenta);
       font-family: var(--mono);
       font-size: 11px;
+      font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 4px 8px;
+      padding: 5px 10px;
       border-radius: 6px;
       cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.15s ease, color 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
     }
-    .code-block:hover .copy { opacity: 1; }
-    .code-block .copy:hover { color: var(--fg); }
-    .code-block .copy.copied { color: var(--teal); border-color: var(--teal); opacity: 1; }
+    .code-block .copy:hover {
+      background: var(--magenta);
+      color: var(--bg);
+      transform: translateY(-1px);
+    }
+    .code-block .copy.copied {
+      background: var(--teal-soft);
+      color: var(--teal);
+      border-color: var(--teal);
+    }
+    .code-block.path {
+      padding-top: 56px;
+      border-color: var(--line-strong);
+      background: linear-gradient(180deg, var(--bg-soft-2), var(--bg-soft));
+    }
+    .code-block.path .path-tag {
+      position: absolute;
+      top: 14px; left: 18px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--teal);
+      background: var(--teal-soft);
+      border: 1px solid color-mix(in oklab, var(--teal) 35%, transparent);
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+    .code-block.aside {
+      margin-top: 18px;
+      padding: 14px 18px;
+      background: transparent;
+      border-style: dashed;
+    }
+    .code-block.aside .h {
+      margin-bottom: 6px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 12px;
+    }
+    .code-block.aside .h .dim-inline {
+      color: var(--fg-faint);
+      font-weight: normal;
+    }
+    .code-block.aside .ln { font-size: 12.5px; line-height: 1.6; }
 
     /* ---------- pi callout ---------- */
     .callout {
@@ -645,6 +688,7 @@
       <nav class="nav-links" aria-label="primary">
         <a href="#install">Install</a>
         <a href="#commands">Commands</a>
+        <a href="#" id="navVideo" aria-haspopup="dialog">Demo</a>
         <a class="gh" href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener noreferrer" aria-label="View locca on GitHub">
           <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" width="14" height="14"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2 .37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
@@ -660,14 +704,15 @@
         <div>
           <span class="pill"><span class="pulse" aria-hidden="true"></span> Local-first</span>
           <h1 id="hero-title" class="headline">
-            Run agents locally.<br />Download, <em>switch</em>, repeat.
+            Local agents,<br />the <em>easy</em> way.
           </h1>
           <p class="lede">
-            One command to download a GGUF, start
-            <code translate="no">llama.cpp</code>, and wire it into the
+            locca sets up <code translate="no">llama.cpp</code>, helps you
+            pick GGUF models that fit your hardware, benchmarks them, and
+            wires the
             <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">pi</a>
-            coding agent (or any OpenAI-compatible client). Switch models
-            without touching a flag.
+            coding agent (or any OpenAI-compatible client) to whatever
+            you're running. One CLI, no flag spelunking.
           </p>
 
           <div class="cta-row">
@@ -676,10 +721,11 @@
               <span class="cmd" id="installCmd" translate="no">npm install -g @zeiq/locca</span>
               <button id="copyInstall" type="button" aria-label="copy install command">Copy</button>
             </div>
-            <a class="btn-ghost" href="#" id="openVideo" aria-haspopup="dialog">
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v14l11-7-11-7z"/></svg>
-              Watch video
-            </a>
+            <div class="install" role="group" aria-label="ai setup prompt">
+              <span class="prompt" aria-hidden="true">»</span>
+              <span class="cmd" translate="no">ai setup prompt</span>
+              <button id="copyPromptHero" type="button" aria-label="copy ai setup prompt">Copy prompt</button>
+            </div>
           </div>
         </div>
 
@@ -728,16 +774,17 @@
         <div class="features">
           <div class="feature">
             <div class="glyph" aria-hidden="true">⌁</div>
-            <h3>Just runs</h3>
+            <h3>llama.cpp, handled</h3>
             <p>
-              No flag spelunking. locca starts <code translate="no">llama.cpp</code>
-              with the right knobs (flash attention, quantized KV cache,
-              batch sizing) so models load and respond on the first try.
+              <code translate="no">locca install-llama</code> drops a prebuilt binary
+              into <code translate="no">~/.locca/bin</code> — auto-detects Vulkan, CUDA, HIP,
+              Metal, or CPU. No compiler, no sudo. Then it runs with tuned
+              defaults: flash attention, quantized KV cache, batch sizing.
             </p>
           </div>
           <div class="feature">
             <div class="glyph" aria-hidden="true">⤬</div>
-            <h3>Catalog-aware picker</h3>
+            <h3>Catalog with fit hints</h3>
             <p>
               The first-run wizard and <code translate="no">locca switch</code> show every
               curated model with a <span style="color:var(--teal)">fits — 5.6 GB dl,
@@ -747,12 +794,22 @@
           </div>
           <div class="feature">
             <div class="glyph" aria-hidden="true">↯</div>
-            <h3>Download &amp; manage</h3>
+            <h3>Search &amp; download</h3>
             <p>
               <code translate="no">locca search qwen</code> fuzzy-searches HuggingFace,
               <code translate="no">locca download</code> pulls a GGUF straight into your
               models dir, <code translate="no">locca delete</code> reclaims the disk.
               Vision adapters (<code translate="no">mmproj*.gguf</code>) auto-attach to their parent.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">≡</div>
+            <h3>Bench in one command</h3>
+            <p>
+              <code translate="no">locca bench</code> wraps <code translate="no">llama-bench</code>
+              with a friendlier summary — live tok/s and ctx during the
+              run, results table at the end. Compare quants and ctx sizes
+              without touching a flag.
             </p>
           </div>
           <div class="feature">
@@ -770,19 +827,10 @@
             <h3>OpenAI-compatible</h3>
             <p>
               Point Cursor, Claude Code, or any OpenAI client at the local
-              server. <code translate="no">locca api</code> prints the base URL plus every
-              reachable LAN and Tailscale address — probed live, so a phone
-              on the same network just works.
-            </p>
-          </div>
-          <div class="feature">
-            <div class="glyph" aria-hidden="true">π</div>
-            <h3>Plays nice</h3>
-            <p>
-              Already running <code translate="no">llama-server</code> by hand or via a
-              supervisor? locca detects it on <code translate="no">/health</code>, marks it
+              server. <code translate="no">locca api</code> prints every reachable LAN and
+              Tailscale URL — probed live. Already running <code translate="no">llama-server</code>?
+              locca detects it on <code translate="no">/health</code>, marks it
               <span style="color:var(--teal)">attached</span>, and uses it instead of spawning a duplicate.
-              <code translate="no">stop</code> and <code translate="no">logs</code> defer to whatever started it.
             </p>
           </div>
         </div>
@@ -800,35 +848,64 @@
           GGUF, and installs the pi coding agent.
         </p>
 
-        <div class="code-block" style="max-width:640px">
-          <button class="copy" data-copy="npm install -g @zeiq/locca && locca" type="button">Copy</button>
-          <div class="h">install &amp; run</div>
-          <div class="ln"><span class="p">$</span> npm install -g @zeiq/locca &amp;&amp; locca</div>
-          <div class="ln">&nbsp;</div>
-          <div class="ln"><span class="c"># first run launches a wizard that:</span></div>
-          <div class="ln"><span class="c">#   1. picks a models folder</span></div>
-          <div class="ln"><span class="c">#   2. installs llama.cpp if you don't have it</span></div>
-          <div class="ln"><span class="c">#   3. tunes port, ctx, threads, VRAM cap</span></div>
-          <div class="ln"><span class="c">#   4. offers a starter GGUF download</span></div>
-          <div class="ln"><span class="c">#   5. installs the pi coding agent</span></div>
-          <div class="ln">&nbsp;</div>
-          <div class="ln"><span class="c"># re-run anytime: `locca setup`</span></div>
+        <div class="install-grid">
+          <div class="code-block path">
+            <span class="path-tag">option a · cli</span>
+            <button class="copy" data-copy="npm install -g @zeiq/locca && locca" type="button">Copy</button>
+            <div class="h">install &amp; run</div>
+            <div class="ln"><span class="p">$</span> npm install -g @zeiq/locca &amp;&amp; locca</div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># first-run wizard:</span></div>
+            <div class="ln"><span class="c">#   1. picks a models folder</span></div>
+            <div class="ln"><span class="c">#   2. installs llama.cpp if missing</span></div>
+            <div class="ln"><span class="c">#   3. tunes port, ctx, threads, VRAM</span></div>
+            <div class="ln"><span class="c">#   4. offers a starter GGUF download</span></div>
+            <div class="ln"><span class="c">#   5. installs the pi coding agent</span></div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># re-run anytime: `locca setup`</span></div>
+          </div>
+
+          <div class="code-block path">
+            <span class="path-tag">option b · ai</span>
+            <button class="copy" data-copy="I want to install locca, a CLI for running coding agents against local GGUF models via llama.cpp (https://github.com/perminder-klair/locca). Set it up on my machine.
+
+1. Detect my OS (and Linux distro if applicable). Tell me what you found.
+2. If Node.js >= 18 and npm aren't installed, walk me through the right install command for my OS — apt / dnf / pacman / brew / winget / nvm. Don't suggest sudo on macOS or for npm globals.
+3. Run: npm install -g @zeiq/locca
+   If it fails with EACCES, configure an npm prefix in $HOME or use a Node version manager (nvm / fnm / mise). Don't sudo npm.
+4. Run: locca
+   The first-run wizard will pick a models dir, install llama.cpp (it auto-detects Vulkan / CUDA / HIP / Metal / CPU), tune port/ctx/threads, offer a starter GGUF download, and install the pi coding agent. Let it.
+5. Run: locca doctor — report what it says.
+
+Hardware hints:
+- AMD iGPU (Strix Halo, Radeon 890M): Vulkan backend.
+- NVIDIA discrete: CUDA.
+- AMD discrete: HIP / ROCm.
+- Apple Silicon: Metal (default).
+- No GPU: CPU is fine, just slower.
+
+Ask before anything destructive or anything needing sudo. If a step fails, show me the exact error before retrying." id="aiPromptCopy" type="button">Copy prompt</button>
+            <div class="h">let an AI walk you through it</div>
+            <div class="ln"><span class="p">»</span> Copy the setup prompt →</div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># paste into Claude / ChatGPT / Gemini /</span></div>
+            <div class="ln"><span class="c"># Cursor — it'll detect your OS, install</span></div>
+            <div class="ln"><span class="c"># Node if needed, run the npm install,</span></div>
+            <div class="ln"><span class="c"># and walk you through the wizard.</span></div>
+            <div class="ln">&nbsp;</div>
+            <div class="ln"><span class="c"># works great with `claude` / `codex` /</span></div>
+            <div class="ln"><span class="c"># `gemini` CLIs — they can run the</span></div>
+            <div class="ln"><span class="c"># commands for you, end-to-end.</span></div>
+          </div>
         </div>
 
-        <div class="code-block" style="max-width:640px;margin-top:14px">
-          <div class="h">no llama.cpp? no problem</div>
+        <div class="code-block aside">
+          <button class="copy" data-copy="locca install-llama" type="button">Copy</button>
+          <div class="h">don't have llama.cpp? <span class="dim-inline">— the wizard handles it, but you can also run it standalone:</span></div>
           <div class="ln"><span class="p">$</span> locca install-llama</div>
-          <div class="ln">&nbsp;</div>
-          <div class="ln"><span class="c"># downloads a prebuilt binary from</span></div>
-          <div class="ln"><span class="c"># upstream into ~/.locca/bin/. Auto-</span></div>
-          <div class="ln"><span class="c"># detects your accelerator (Vulkan,</span></div>
-          <div class="ln"><span class="c"># CUDA, HIP, Metal, or CPU).</span></div>
-          <div class="ln">&nbsp;</div>
-          <div class="ln"><span class="c"># no sudo, no compiler, no system</span></div>
-          <div class="ln"><span class="c"># package needed. Already have</span></div>
-          <div class="ln"><span class="c"># llama.cpp on PATH? locca uses that.</span></div>
-          <div class="ln">&nbsp;</div>
-          <div class="ln"><span class="c"># update later: `locca install-llama --update`</span></div>
+          <div class="ln"><span class="c"># downloads a prebuilt binary into ~/.locca/bin/</span></div>
+          <div class="ln"><span class="c"># auto-detects Vulkan / CUDA / HIP / Metal / CPU</span></div>
+          <div class="ln"><span class="c"># already on PATH? locca uses that. update: --update</span></div>
         </div>
       </div>
     </section>
@@ -921,6 +998,25 @@
       });
     })();
 
+    // copy-to-clipboard for hero ai prompt bar (reuses the prompt text from
+    // the install-section card so we don't duplicate the string)
+    (function () {
+      const btn = document.getElementById('copyPromptHero');
+      const src = document.getElementById('aiPromptCopy');
+      if (!btn || !src || !navigator.clipboard) return;
+      btn.addEventListener('click', async () => {
+        const text = src.dataset.copy || '';
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.classList.add('copied');
+          const prev = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(() => { btn.classList.remove('copied'); btn.textContent = prev; }, 1500);
+        } catch (_) { /* noop */ }
+      });
+    })();
+
     // copy-to-clipboard for code blocks
     document.querySelectorAll('.code-block .copy').forEach((b) => {
       if (!navigator.clipboard) { b.style.display = 'none'; return; }
@@ -962,19 +1058,20 @@
     // video dialog
     (function () {
       const dlg = document.getElementById('videoDialog');
-      const open = document.getElementById('openVideo');
+      const navOpen = document.getElementById('navVideo');
       const close = document.getElementById('closeVideo');
       const video = document.getElementById('videoPlayer');
-      if (!dlg || !open || !close || !video) return;
-      open.addEventListener('click', (e) => {
-        e.preventDefault();
+      if (!dlg || !close || !video) return;
+      const openDialog = (e) => {
+        if (e) e.preventDefault();
         if (typeof dlg.showModal === 'function') {
           dlg.showModal();
         } else {
           dlg.setAttribute('open', '');
         }
         try { video.currentTime = 0; video.play(); } catch (_) {}
-      });
+      };
+      if (navOpen) navOpen.addEventListener('click', openDialog);
       const closeDialog = () => {
         try { video.pause(); } catch (_) {}
         if (dlg.open) dlg.close();
