@@ -395,7 +395,7 @@
       scrollbar-width: thin;
     }
     .term-body .line { white-space: pre; }
-    .term-body .line:first-child { white-space: normal; }
+    .term-body > .line:first-child { white-space: normal; }
     .term-body .prompt { color: var(--magenta); }
     .term-body .dim { color: var(--fg-faint); }
     .term-body .ok { color: var(--teal); }
@@ -407,6 +407,36 @@
       border-radius: 3px;
     }
     .term-body .arrow { color: var(--magenta); }
+    .term { outline: none; }
+    .term:focus-visible {
+      border-color: var(--magenta);
+      box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6),
+                  0 0 0 2px rgba(217, 70, 239, 0.5);
+    }
+    .term-row {
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+      border-radius: 4px;
+    }
+    .term-row:hover { background: rgba(217, 70, 239, 0.07); }
+    .term-hint { color: var(--fg-faint); font-size: 12px; margin-top: 10px; }
+    .term-back {
+      background: transparent;
+      border: 0;
+      color: var(--magenta);
+      font: inherit;
+      cursor: pointer;
+      padding: 6px 0 0;
+      margin-top: 10px;
+      display: inline-block;
+    }
+    .term-back:hover { text-decoration: underline; }
+    .term-back:focus-visible { outline: 1px dashed var(--magenta); outline-offset: 4px; }
+    .term-output { animation: termFade 180ms ease-out; }
+    @keyframes termFade {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: none; }
+    }
     .caret {
       display: inline-block;
       width: 8px;
@@ -729,14 +759,15 @@
           </div>
         </div>
 
-        <div class="term" role="img" aria-label="locca interactive menu mockup">
+        <div class="term" tabindex="0" role="region" aria-label="locca interactive demo — use arrow keys to move, Enter to run, Esc to go back">
           <div class="term-bar" aria-hidden="true">
             <span class="led r"></span><span class="led y"></span><span class="led g"></span>
             <span class="title">~/projects · zsh</span>
           </div>
           <div class="term-body">
             <div class="line"><span class="prompt">$</span> <span id="typed"></span><span class="caret" aria-hidden="true"></span></div>
-            <div class="line" id="afterTyped" hidden>
+            <div id="afterTyped" hidden>
+<div class="line">
 <span class="warn">  ██╗      ██████╗  ██████╗ ██████╗ █████╗</span>
 <span class="warn">  ██║     ██╔═══██╗██╔════╝██╔════╝██╔══██╗</span>
 <span class="warn">  ██║     ██║   ██║██║     ██║     ███████║</span>
@@ -744,16 +775,82 @@
 <span class="warn">  ╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚═╝  ╚═╝</span>
 
   <span class="ok">●</span> <b>attached  llama-server on :8080</b>
-            <span class="dim">Qwen3.5-9B-GGUF</span>
-            <span class="dim">ctx 131,072 · 1 slot</span>
+  <span class="dim">Qwen3.5-9B-GGUF</span>
+  <span class="dim">ctx 131,072 · 1 slot</span>
+</div>
+              <div id="termMenuPane" role="menu" aria-label="locca actions">
+                <div class="line"><span class="dim">◆</span>  what next?</div>
+                <div class="line term-row" role="menuitem" data-action="pi" data-label="Pi       — coding agent (local)"></div>
+                <div class="line term-row" role="menuitem" data-action="switch" data-label="Switch   — swap server to a different model"></div>
+                <div class="line term-row" role="menuitem" data-action="download" data-label="Download — pull from HuggingFace"></div>
+                <div class="line term-row" role="menuitem" data-action="bench" data-label="Bench    — benchmark a model"></div>
+                <div class="line term-row" role="menuitem" data-action="doctor" data-label="Doctor   — health check"></div>
+                <div class="line"><span class="dim">└</span></div>
+                <div class="line term-hint">  ↑↓ to move · Enter to run · click any item · Esc to go back</div>
+              </div>
+              <div class="term-output line" data-action="pi" hidden>
+<span class="prompt">$</span> locca pi
+<span class="ok">●</span> starting llama-server (auto)…
+<span class="ok">✓</span> ready · :8080 · Qwen3.5-9B · ctx 131,072
 
-<span class="dim">◆</span>  what next?
-<span class="dim">│</span>  <span class="arrow">●</span> <span class="sel">Pi       — coding agent (local)</span>
-<span class="dim">│</span>  <span class="dim">○ Switch   — swap server to a different model</span>
-<span class="dim">│</span>  <span class="dim">○ Bench    — benchmark a model</span>
-<span class="dim">│</span>  <span class="dim">○ Api      — show endpoints + LAN URLs</span>
-<span class="dim">│</span>  <span class="dim">○ Download — pull from HuggingFace</span>
+  <span class="dim">[pi]</span> coding agent · model: qwen3.5-9b
+  <span class="prompt">›</span> organise my files in this directory
+  <span class="dim">⠋ thinking… (warm cache, 142 tok/s)</span>
+
+  I see 38 files — mostly screenshots, a few
+  PDFs, and some loose .zip archives. Plan:
+
+    <span class="ok">✓</span> mkdir screenshots/ docs/ archives/
+    <span class="ok">✓</span> mv *.png *.jpg → screenshots/  (24)
+    <span class="ok">✓</span> mv *.pdf       → docs/         (7)
+    <span class="ok">✓</span> mv *.zip *.tar → archives/     (4)
+
+  Run it? <span class="sel"> y </span> / n
+<button class="term-back" type="button">← back to menu</button></div>
+              <div class="term-output line" data-action="switch" hidden>
+<span class="dim">◆</span>  Switch to which model?
+<span class="dim">│</span>  <span class="dim">── Installed ──</span>
+<span class="dim">│</span>  <span class="arrow">●</span> <span class="sel">Qwen3.5-9B-Instruct.Q4_K_M    fits — 5.4 GB · 131k</span>
+<span class="dim">│</span>  <span class="dim">○ Llama-3.1-8B-Instruct.Q4_K_M  fits — 4.6 GB · 32k</span>
+<span class="dim">│</span>  <span class="dim">── Catalog ──</span>
+<span class="dim">│</span>  <span class="dim">○ Qwen3 32B Q4_K_M             too large — needs ~22 GB</span>
+<span class="dim">│</span>  <span class="dim">○ Mistral 7B Q5_K_M            fits — 5.1 GB · 32k</span>
+<span class="dim">│</span>  <span class="dim">○ Browse HuggingFace…</span>
 <span class="dim">└</span>
+<button class="term-back" type="button">← back to menu</button></div>
+              <div class="term-output line" data-action="download" hidden>
+<span class="prompt">$</span> locca download qwen
+<span class="dim">◆</span>  pick a model
+<span class="dim">│</span>  <span class="dim">results for "qwen"</span>
+<span class="dim">│</span>  <span class="arrow">●</span> <span class="sel">Qwen/Qwen3.5-9B-Instruct-GGUF</span>
+<span class="dim">│</span>  <span class="dim">○ bartowski/Qwen3-32B-GGUF</span>
+<span class="dim">│</span>  <span class="dim">○ unsloth/Qwen2.5-Coder-32B-GGUF</span>
+<span class="dim">└</span>
+
+<span class="ok">↓</span> Qwen3.5-9B-Instruct-Q4_K_M.gguf
+<span class="warn">████████████████████</span><span class="dim">░░░░░</span>  78%   4.2/5.4 GB · 18 MB/s
+<button class="term-back" type="button">← back to menu</button></div>
+              <div class="term-output line" data-action="bench" hidden>
+<span class="prompt">$</span> locca bench Qwen3.5-9B
+prompt 512 · generate 128 · 3 runs
+
+run 1   pp <span class="ok">1842</span> t/s   tg <span class="ok">142</span> t/s
+run 2   pp <span class="ok">1855</span> t/s   tg <span class="ok">143</span> t/s
+run 3   pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
+─────────────────────────────────
+median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
+<button class="term-back" type="button">← back to menu</button></div>
+              <div class="term-output line" data-action="doctor" hidden>
+<span class="prompt">$</span> locca doctor
+<span class="ok">✓</span> hardware     AMD Strix Halo · Radeon 890M · 96 GB
+<span class="ok">✓</span> llama-server v0.4.1 (Vulkan, n_gpu_layers=999)
+<span class="ok">✓</span> pi           v0.71.2
+<span class="ok">✓</span> server       :8080 · Qwen3.5-9B · 1 slot
+<span class="ok">✓</span> models dir   ~/models · 4 models · 21.3 GB
+<span class="dim">○</span> log size     342 KB
+
+<span class="ok">all systems green.</span>
+<button class="term-back" type="button">← back to menu</button></div>
             </div>
           </div>
         </div>
@@ -1053,6 +1150,110 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
         }
       }
       setTimeout(step, 600);
+    })();
+
+    // hero terminal interactive demo
+    (function () {
+      const term = document.querySelector('.term');
+      const menuPane = document.getElementById('termMenuPane');
+      if (!term || !menuPane) return;
+      const rows = Array.from(menuPane.querySelectorAll('.term-row'));
+      const outputs = Array.from(document.querySelectorAll('.term-output'));
+      if (rows.length === 0) return;
+
+      let active = 0;
+      let inOutput = false;
+
+      function span(cls, text) {
+        const s = document.createElement('span');
+        s.className = cls;
+        s.textContent = text;
+        return s;
+      }
+
+      function renderRows() {
+        rows.forEach((row, i) => {
+          const label = row.dataset.label || '';
+          row.replaceChildren();
+          row.appendChild(span('dim', '│'));
+          row.appendChild(document.createTextNode('  '));
+          if (i === active) {
+            row.appendChild(span('arrow', '●'));
+            row.appendChild(document.createTextNode(' '));
+            row.appendChild(span('sel', label));
+          } else {
+            row.appendChild(span('dim', '○ ' + label));
+          }
+          row.setAttribute('aria-current', i === active ? 'true' : 'false');
+        });
+      }
+
+      function show(action) {
+        inOutput = true;
+        menuPane.hidden = true;
+        let target = null;
+        outputs.forEach((o) => {
+          const match = o.dataset.action === action;
+          o.hidden = !match;
+          if (match) target = o;
+        });
+        if (target) {
+          const back = target.querySelector('.term-back');
+          if (back) back.focus();
+        }
+      }
+
+      function back() {
+        inOutput = false;
+        outputs.forEach((o) => { o.hidden = true; });
+        menuPane.hidden = false;
+        term.focus();
+      }
+
+      rows.forEach((row, i) => {
+        row.addEventListener('mouseenter', () => { active = i; renderRows(); });
+        row.addEventListener('click', () => {
+          active = i;
+          renderRows();
+          show(row.dataset.action);
+        });
+      });
+
+      outputs.forEach((o) => {
+        const btn = o.querySelector('.term-back');
+        if (btn) btn.addEventListener('click', back);
+      });
+
+      term.addEventListener('keydown', (e) => {
+        if (inOutput) {
+          if (e.key === 'Escape' || e.key === 'Backspace') {
+            e.preventDefault();
+            back();
+          }
+          return;
+        }
+        switch (e.key) {
+          case 'ArrowDown':
+          case 'j':
+            e.preventDefault();
+            active = (active + 1) % rows.length;
+            renderRows();
+            break;
+          case 'ArrowUp':
+          case 'k':
+            e.preventDefault();
+            active = (active - 1 + rows.length) % rows.length;
+            renderRows();
+            break;
+          case 'Enter':
+          case ' ':
+            e.preventDefault();
+            show(rows[active].dataset.action);
+            break;
+        }
+      });
+
+      renderRows();
     })();
 
     // video dialog
