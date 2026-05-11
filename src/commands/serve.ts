@@ -1,4 +1,6 @@
+import { basename } from 'node:path';
 import * as p from '@clack/prompts';
+import { serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
 import { pickModel, scanModels } from '../models.js';
@@ -88,6 +90,8 @@ export async function serve(): Promise<void> {
     port,
     ctx,
     threads,
+    extraArgs: serverArgsForModel(basename(model.path)),
+    noMmap: cfg.noMmap,
     // Detached: server keeps running after locca exits. Stop it with
     // `locca stop`. Logs go to the log file (see `locca logs`).
     detached: true,

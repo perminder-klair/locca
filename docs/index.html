@@ -920,8 +920,10 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
             <p>
               <code translate="no">locca install-llama</code> drops a prebuilt binary
               into <code translate="no">~/.locca/bin</code> — auto-detects Vulkan, CUDA, HIP,
-              Metal, or CPU. No compiler, no sudo. Then it runs with tuned
-              defaults: flash attention, quantized KV cache, batch sizing.
+              Metal, or CPU. No compiler, no sudo. Runs with tuned defaults:
+              flash attention, quantized KV cache, batch sizing, plus
+              per-family sampler defaults and a stable HF model alias for any
+              catalog model. <code translate="no">noMmap</code> opt-in for Strix Halo / Ryzen AI MAX+.
             </p>
           </div>
           <div class="feature">

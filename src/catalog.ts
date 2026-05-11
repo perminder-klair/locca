@@ -73,7 +73,40 @@ export interface CatalogEntry {
 
 const DEFAULT_OVERHEAD = 1.05;
 
-const QWEN_SAMPLER = ['--temp', '0.6', '--top-k', '20', '--top-p', '0.95', '--min-p', '0'];
+// Per-family sampler defaults. Pushed onto the llama-server argv via
+// `serverArgsForModel()` so clients that don't set their own sampling get
+// values the model vendor recommends instead of llama-server's generic
+// defaults (temp 0.8). Repeating a flag is fine — llama-server keeps the
+// last occurrence, so a user override later on the command line still wins.
+
+// Qwen 3.x ("thinking, precise coding" profile per Unsloth's Qwen3.6 docs).
+// https://unsloth.ai/docs/models/qwen3.6
+const QWEN_SAMPLER = [
+  '--temp',
+  '0.6',
+  '--top-k',
+  '20',
+  '--top-p',
+  '0.95',
+  '--min-p',
+  '0.0',
+  '--presence-penalty',
+  '0.0',
+];
+
+// Gemma 4 — Google's published defaults.
+// temp 1.0, top-k 64, top-p 0.95. min-p left at 0 (no minimum).
+// repeat-penalty deliberately not set: Gemma's training is sensitive to it.
+const GEMMA_SAMPLER = [
+  '--temp',
+  '1.0',
+  '--top-k',
+  '64',
+  '--top-p',
+  '0.95',
+  '--min-p',
+  '0.0',
+];
 
 export const catalog: CatalogFamily[] = [
   {
@@ -81,6 +114,7 @@ export const catalog: CatalogFamily[] = [
     series: 'gemma',
     description:
       "Google's most capable open models, built from Gemini 3 technology. Multimodal, agentic, 140+ languages.",
+    serverArgs: GEMMA_SAMPLER,
     overheadMultiplier: 1.3,
     sizes: [
       {
@@ -348,6 +382,27 @@ export function entriesForRepo(repo: string): CatalogEntry[] {
 
 export function familyOverhead(family: CatalogFamily): number {
   return family.overheadMultiplier ?? DEFAULT_OVERHEAD;
+}
+
+/**
+ * Per-model extra flags to append to the llama-server argv. Looks the model
+ * up in the catalog by filename and returns:
+ *   - `--alias <hfRepo>` (so `/v1/models` reports the Hugging Face id, not
+ *     the raw GGUF path).
+ *   - the family's `serverArgs` (sampler defaults tuned by the vendor) if
+ *     declared.
+ * Returns `[]` for unknown models — locca stays usable with anything in
+ * `modelsDir`, catalog hit or not.
+ *
+ * Works for every llama.cpp build/backend/OS: these are pure server flags,
+ * no platform-specific behaviour.
+ */
+export function serverArgsForModel(filename: string): string[] {
+  const entry = findEntryByFilename(filename);
+  if (!entry) return [];
+  const out: string[] = ['--alias', entry.build.hfRepo];
+  if (entry.family.serverArgs?.length) out.push(...entry.family.serverArgs);
+  return out;
 }
 
 /**

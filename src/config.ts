@@ -19,6 +19,7 @@ function defaults(): Config {
     llamaBench: 'llama-bench',
     piSkills: 'lazy',
     piExtensions: true,
+    noMmap: false,
   };
 }
 

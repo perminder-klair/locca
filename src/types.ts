@@ -40,6 +40,17 @@ export interface Config {
    */
   vramBudgetMB?: number;
   /**
+   * Pass `--no-mmap` to llama-server. Default `false` — mmap is faster and
+   * lower-memory on dedicated-VRAM GPUs and Apple Silicon. Set `true` only
+   * on Strix Halo / Ryzen AI MAX+ where independent measurements report
+   * `+22% pp128` and improved stability when mmap is disabled. Not
+   * auto-detected: Strix Halo surfaces under several driver names
+   * (`Radeon 8050S/8060S`, `Radeon Graphics`, `RADV STRIX_HALO`), so a
+   * wrong guess silently degrades. Manual opt-in is honest about the
+   * trade-off.
+   */
+  noMmap?: boolean;
+  /**
    * Metadata about a locca-managed llama.cpp install (downloaded by
    * `locca install-llama`). When present, llamaServer/llamaCli/llamaBench
    * point into ~/.locca/bin/llama-cpp/<dir>/. Used by doctor to report

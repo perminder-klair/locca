@@ -115,6 +115,12 @@ const SCHEMA: Field[] = [
   },
   { key: 'piExtensions', label: 'Enable pi extensions', kind: 'boolean' },
   { key: 'piContextFiles', label: 'Enable pi context files', kind: 'boolean' },
+  {
+    key: 'noMmap',
+    label: 'Pass --no-mmap to llama-server',
+    kind: 'boolean',
+    hint: 'enable on Strix Halo / Ryzen AI MAX+ for +22% pp128; leave off on dedicated-VRAM GPUs and Apple Silicon',
+  },
 ];
 
 export async function config(args: string[]): Promise<void> {

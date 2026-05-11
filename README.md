@@ -96,6 +96,23 @@ The same output prints automatically after `locca serve` succeeds.
 | `--batch-size 1024` | Larger prompt-processing batches (faster on iGPUs) |
 | `--jinja` | Proper chat template handling |
 | `--mmproj <file>` | Auto-added when an `mmproj*.gguf` sibling is detected |
+| `--alias <hf-repo>` | Auto-added for catalog models so `/v1/models` reports a stable HF id |
+| `--no-mmap` | Opt-in via `noMmap: true` — only a measured win on Strix Halo / Ryzen AI MAX+ |
+
+### Per-family sampler defaults
+
+When the loaded model matches a curated entry in `src/catalog.ts`, locca
+appends the family's vendor-recommended sampler so clients that don't set
+their own values don't fall back to llama-server's generic temp 0.8:
+
+| Family | Sampler |
+|---|---|
+| Qwen 3.5 / 3.6 ([Unsloth docs](https://unsloth.ai/docs/models/qwen3.6)) | `--temp 0.6 --top-k 20 --top-p 0.95 --min-p 0.0 --presence-penalty 0.0` |
+| Gemma 4 (Google defaults) | `--temp 1.0 --top-k 64 --top-p 0.95 --min-p 0.0` |
+
+Sideloaded GGUFs not in the catalog get no sampler injection — llama-server
+uses its built-in defaults (or what `--jinja` reads from the GGUF metadata).
+Any flag a client sets in its request still wins.
 
 Per-model context auto-tuning (`ctxForModel()` in `src/models.ts`) picks
 the largest tier that actually fits:
@@ -168,7 +185,8 @@ by hand, or re-run the wizard:
   "piSkills": "lazy",
   "piExtensions": true,
   "piContextFiles": false,
-  "vramBudgetMB": 16384
+  "vramBudgetMB": 16384,
+  "noMmap": false
 }
 ```
 
@@ -212,6 +230,15 @@ aren't blown out by large project instruction files.
 It does **not** override an explicit `defaultCtx` or a ctx you type
 into `locca serve`. `locca doctor` will detect your GPU's reported VRAM
 and suggest a value if it's unset.
+
+`noMmap` (default `false`) controls whether locca passes `--no-mmap` to
+llama-server. Leave it off on dedicated-VRAM GPUs and Apple Silicon —
+mmap is faster and lower-memory there. Flip it on for Strix Halo /
+Ryzen AI MAX+ where one independent benchmark measured **+22% pp128 and
+improved stability** with mmap disabled. Not auto-detected on purpose:
+Strix Halo surfaces under several driver names
+(`Radeon 8050S/8060S`, `Radeon Graphics`, `RADV STRIX_HALO`), so a wrong
+guess would silently degrade.
 
 locca probes `defaultPort` at startup. If something already responds to
 `/health` (a llama-server you started by hand or via a supervisor),

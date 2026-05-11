@@ -260,6 +260,19 @@ export interface ServeOpts {
   threads: number;
   host?: string;
   detached?: boolean;
+  /**
+   * Extra flags appended after `COMMON_ARGS` (and after the explicit ctx-size).
+   * Usually filled from `serverArgsForModel()` — per-family sampler defaults
+   * plus `--alias`. Repeating a flag is fine: llama-server keeps the last
+   * occurrence, so anything in here overrides the same flag in `COMMON_ARGS`.
+   */
+  extraArgs?: string[];
+  /**
+   * Pass `--no-mmap`. Opt-in per `cfg.noMmap` (default false) — only a
+   * measured win on Strix Halo / unified-memory APUs; on dedicated-VRAM
+   * GPUs and Apple Silicon mmap is faster and saves resident RAM.
+   */
+  noMmap?: boolean;
 }
 
 const COMMON_ARGS = [
@@ -297,6 +310,8 @@ export function buildServerArgs(opts: ServeOpts): string[] {
   if (opts.mmprojPath) {
     args.splice(2, 0, '--mmproj', opts.mmprojPath);
   }
+  if (opts.noMmap) args.push('--no-mmap');
+  if (opts.extraArgs?.length) args.push(...opts.extraArgs);
   return args;
 }
 

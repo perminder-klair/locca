@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
+import { serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama, requirePi } from '../deps.js';
 import { type DoctorReport, runDoctor, summariseForPrompt } from '../doctor.js';
@@ -115,6 +116,8 @@ async function ensureServer(cfg: Config, report: DoctorReport): Promise<ServerIn
     ctx,
     threads: cfg.defaultThreads,
     host: '127.0.0.1',
+    extraArgs: serverArgsForModel(basename(model.path)),
+    noMmap: cfg.noMmap,
     detached: true,
   });
   const ready = await waitReady(port, 60);
