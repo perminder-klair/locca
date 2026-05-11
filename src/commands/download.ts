@@ -12,7 +12,7 @@ import {
 } from '../compat.js';
 import { loadConfig } from '../config.js';
 import { probeHardware } from '../hardware.js';
-import { downloadFile, fileSize, listFiles, parseRepo } from '../hf.js';
+import { downloadFile, fileSize, listFiles, parseRepo, searchModels } from '../hf.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { formatGB } from '../util.js';
 
@@ -25,11 +25,22 @@ export async function download(args: string[]): Promise<void> {
   } else {
     const input = await p.text({
       message: 'HuggingFace model',
-      placeholder: 'user/repo or HuggingFace URL',
+      placeholder: 'user/repo, URL, or a search term (e.g. qwen3.6)',
     });
     exitIfCancelled(input);
     if (!input) return;
     repo = parseRepo(input);
+  }
+
+  // A bare term like "qwen3.6" isn't a repo id — HF's /api/models/<id>
+  // endpoint 401s on malformed ids with a misleading "Invalid username or
+  // password" body, which sends users on a wild goose chase. If the input
+  // doesn't contain a slash, treat it as a search query and let the user
+  // pick a real repo.
+  if (!repo.includes('/')) {
+    const picked = await searchAndPick(repo);
+    if (!picked) return;
+    repo = picked;
   }
 
   console.log();
@@ -233,6 +244,39 @@ export async function downloadCatalogEntry(entry: CatalogEntry): Promise<string>
 function basenameOnly(p: string): string {
   const i = p.lastIndexOf('/');
   return i === -1 ? p : p.slice(i + 1);
+}
+
+/**
+ * Run a HuggingFace search and let the user pick a repo. Used as a fallback
+ * when `download` is given a bare term instead of `org/name`. Returns the
+ * picked repo id, or undefined if the user cancelled or nothing matched.
+ */
+async function searchAndPick(query: string): Promise<string | undefined> {
+  const spinner = p.spinner();
+  spinner.start(`Searching HuggingFace for "${query}"...`);
+  const results = await searchModels(query);
+  spinner.stop(`${results.length} matches`);
+
+  if (results.length === 0) {
+    p.log.error(
+      `No GGUF repos matched "${query}". Use a full org/name (e.g. unsloth/Qwen3.6-35B-A3B-GGUF) or try \`locca search ${query}\`.`,
+    );
+    return undefined;
+  }
+
+  const picked = await search<string>({
+    message: 'Pick a repo',
+    source: async (input) => {
+      const q = (input ?? '').toLowerCase();
+      return results
+        .filter((r) => !q || r.id.toLowerCase().includes(q))
+        .map((r) => ({
+          name: `${r.id.padEnd(56)}  ${String(r.downloads).padStart(8)} ↓  ${String(r.likes).padStart(5)} ♥`,
+          value: r.id,
+        }));
+    },
+  });
+  return picked || undefined;
 }
 
 async function downloadWithProgress(repo: string, file: string, dest: string): Promise<void> {

@@ -25,7 +25,23 @@ export function parseRepo(input: string): string {
 
 export async function listFiles(repo: string): Promise<string[]> {
   const r = await fetch(`${HF}/api/models/${encodeURI(repo)}`);
-  if (!r.ok) throw new Error(`HF API ${r.status}: ${await r.text()}`);
+  if (!r.ok) {
+    // HF returns a misleading 401 "Invalid username or password" for both
+    // malformed ids (no slash) AND non-existent repos when unauthenticated.
+    // Translate so users don't go hunting for a login they don't need.
+    const body = await r.text();
+    if (r.status === 401 || r.status === 404) {
+      if (!repo.includes('/')) {
+        throw new Error(
+          `'${repo}' isn't a valid repo id — need org/name (e.g. unsloth/Qwen3.6-35B-A3B-GGUF). Try \`locca search ${repo}\`.`,
+        );
+      }
+      throw new Error(
+        `repo '${repo}' not found on HuggingFace (or is gated/private). Check the spelling, or try \`locca search ${repo.split('/').pop()}\`.`,
+      );
+    }
+    throw new Error(`HF API ${r.status}: ${body}`);
+  }
   const data = (await r.json()) as { siblings?: Array<{ rfilename?: string }> };
   return (data.siblings ?? []).map((s) => s.rfilename).filter((s): s is string => Boolean(s));
 }
