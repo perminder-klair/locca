@@ -14,6 +14,10 @@
  * `CatalogSize` entry with the parameter count and ctx slope, then list one
  * `CatalogBuild` per quantization.
  */
+import { ggufHasMtpHead } from './gguf.js';
+import { llamaSupportsMtp } from './hardware.js';
+import type { Config } from './types.js';
+
 export interface CatalogBuild {
   /** Quant tag, e.g. "Q4_K_M", "Q8_0", "UD-Q4_K_XL", "mxfp4". */
   quantization: string;
@@ -403,6 +407,25 @@ export function serverArgsForModel(filename: string): string[] {
   const out: string[] = ['--alias', entry.build.hfRepo];
   if (entry.family.serverArgs?.length) out.push(...entry.family.serverArgs);
   return out;
+}
+
+/**
+ * MTP (Multi-Token Prediction) speculative-decoding flags for a given model
+ * file. Three gates, cheapest first — config policy, then build capability,
+ * then the model's own tensors:
+ *   1. `cfg.mtp === 'off'`        → opt-out, nothing.
+ *   2. build can't do `draft-mtp` → old llama-server, suppress (avoid a
+ *      startup failure on a flag it doesn't know).
+ *   3. GGUF has no MTP head      → the flag would be a no-op at best.
+ * When all three pass, returns `--spec-type draft-mtp --spec-draft-n-max N`.
+ * These ride on `extraArgs`, which is last-wins over the baked-in server
+ * args, so `buildServerArgs()` needs no change.
+ */
+export function mtpArgsForModel(modelPath: string, cfg: Config, llamaServer: string): string[] {
+  if (cfg.mtp === 'off') return [];
+  if (!llamaSupportsMtp(llamaServer)) return [];
+  if (!ggufHasMtpHead(modelPath)) return [];
+  return ['--spec-type', 'draft-mtp', '--spec-draft-n-max', String(cfg.mtpDraftMax ?? 3)];
 }
 
 /**

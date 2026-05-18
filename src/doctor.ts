@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CONFIG_FILE, loadConfig } from './config.js';
-import { type HardwareInfo, probeHardware, readLlamaVersion } from './hardware.js';
+import { ggufHasMtpHead } from './gguf.js';
+import { type HardwareInfo, llamaSupportsMtp, probeHardware, readLlamaVersion } from './hardware.js';
 import { ctxCapForBudget, scanModels } from './models.js';
 import { PI_PROVIDER_KEY, piModelsJsonPath } from './pi-config.js';
 import { LOGFILE, type ServerStatus, serverStatus } from './server.js';
@@ -39,6 +40,10 @@ export interface DoctorReport {
   llamaSource: LlamaSource;
   /** Latest upstream release tag, if we could check (cached for 24h). */
   latestLlamaVersion?: string;
+  /** Whether the resolved llama-server accepts `--spec-type draft-mtp`. */
+  llamaSupportsMtp: boolean;
+  /** How many models in modelsDir actually ship MTP head tensors. */
+  mtpModelCount: number;
   models: Model[];
   status: ServerStatus;
   liveCtx?: number;
@@ -57,6 +62,8 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
   const llamaSource = classifyLlamaSource(cfg, llamaServerPath);
   const latestLlamaVersion = await maybeCheckLatestRelease(llamaSource);
   const models = scanModels(cfg.modelsDir);
+  const llamaMtp = llamaServerPath ? llamaSupportsMtp(llamaServerPath) : false;
+  const mtpModelCount = models.filter((m) => ggufHasMtpHead(m.path)).length;
   const status = await serverStatus(cfg);
 
   let liveCtx: number | undefined;
@@ -78,6 +85,8 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
     llamaServerVersion,
     llamaSource,
     latestLlamaVersion,
+    llamaSupportsMtp: llamaMtp,
+    mtpModelCount,
     models,
     status,
     liveCtx,
@@ -93,6 +102,8 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
     llamaServerVersion,
     llamaSource,
     latestLlamaVersion,
+    llamaSupportsMtp: llamaMtp,
+    mtpModelCount,
     models,
     status,
     liveCtx,
@@ -287,6 +298,8 @@ interface CollectArgs {
   llamaServerVersion: string | null;
   llamaSource: LlamaSource;
   latestLlamaVersion?: string;
+  llamaSupportsMtp: boolean;
+  mtpModelCount: number;
   models: Model[];
   status: ServerStatus;
   liveCtx?: number;
@@ -319,6 +332,31 @@ function collectFindings(args: CollectArgs): Finding[] {
       title: `update available: ${args.cfg.llamaBundled.version} → ${args.latestLlamaVersion}`,
       suggestion: 'Run `locca install-llama --update` to bump.',
     });
+  }
+
+  // MTP (Multi-Token Prediction) speculative decoding. Only worth flagging
+  // when the user actually has MTP-capable models on disk.
+  if (args.llamaServerPath && args.mtpModelCount > 0 && args.cfg.mtp !== 'off') {
+    if (!args.llamaSupportsMtp) {
+      out.push({
+        severity: 'info',
+        section: 'llama.cpp',
+        title: `${args.mtpModelCount} model${args.mtpModelCount === 1 ? '' : 's'} ship MTP heads, but this llama-server is too old for --spec-type draft-mtp`,
+        detail:
+          'MTP speculative decoding (merged 2026-05-16) delivers a ~1.5–2x single-stream speedup with <10% extra memory.',
+        suggestion:
+          args.llamaSource === 'locca-managed'
+            ? 'Run `locca install-llama --update` to get an MTP-capable build.'
+            : 'Update llama.cpp to a build from 2026-05-16 or later.',
+      });
+    } else {
+      out.push({
+        severity: 'info',
+        section: 'llama.cpp',
+        title: `MTP speculative decoding active for ${args.mtpModelCount} model${args.mtpModelCount === 1 ? '' : 's'}`,
+        detail: 'locca passes `--spec-type draft-mtp` automatically for models with MTP heads.',
+      });
+    }
   }
 
   // ── Models ────────────────────────────────────────────────────────
@@ -534,6 +572,9 @@ export function summariseForPrompt(report: DoctorReport): string {
   if (report.llamaServerVersion) {
     out.push(`- Version: ${report.llamaServerVersion.split('\n').slice(0, 3).join(' / ')}`);
   }
+  out.push(
+    `- MTP speculative decoding: ${report.llamaSupportsMtp ? 'supported by build' : 'not supported by build'}; ${report.mtpModelCount} model(s) with MTP heads`,
+  );
   out.push('');
 
   out.push('## Server (current state)');

@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
-import { serverArgsForModel } from '../catalog.js';
+import { mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
 import { pickModel, scanModels } from '../models.js';
@@ -90,7 +90,10 @@ export async function serve(): Promise<void> {
     port,
     ctx,
     threads,
-    extraArgs: serverArgsForModel(basename(model.path)),
+    extraArgs: [
+      ...serverArgsForModel(basename(model.path)),
+      ...mtpArgsForModel(model.path, cfg, cfg.llamaServer),
+    ],
     noMmap: cfg.noMmap,
     parallel: cfg.defaultParallel,
     // Detached: server keeps running after locca exits. Stop it with

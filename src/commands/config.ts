@@ -132,6 +132,28 @@ const SCHEMA: Field[] = [
     kind: 'boolean',
     hint: 'enable on Strix Halo / Ryzen AI MAX+ for +22% pp128; leave off on dedicated-VRAM GPUs and Apple Silicon',
   },
+  {
+    key: 'mtp',
+    label: 'MTP speculative decoding',
+    kind: 'enum',
+    hint: '~1.5–2x single-stream speedup on models with MTP heads',
+    choices: [
+      { value: 'auto', label: 'auto', hint: 'on when both the build and the model support it' },
+      { value: 'off', label: 'off', hint: 'never pass --spec-type draft-mtp' },
+    ],
+  },
+  {
+    key: 'mtpDraftMax',
+    label: 'MTP max draft tokens',
+    kind: 'number',
+    optional: true,
+    hint: '--spec-draft-n-max; 2–4, unset uses 3',
+    presets: [
+      { value: 2, label: '2', hint: 'conservative' },
+      { value: 3, label: '3', hint: 'recommended default' },
+      { value: 4, label: '4', hint: 'aggressive' },
+    ],
+  },
 ];
 
 export async function config(args: string[]): Promise<void> {

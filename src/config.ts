@@ -21,6 +21,7 @@ function defaults(): Config {
     piExtensions: true,
     defaultParallel: 1,
     noMmap: false,
+    mtp: 'auto',
   };
 }
 

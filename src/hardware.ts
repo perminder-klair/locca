@@ -172,3 +172,27 @@ export function readLlamaVersion(binary: string): string | null {
   const out = (r.stderr || r.stdout || '').trim();
   return out || null;
 }
+
+const mtpSupportCache = new Map<string, boolean>();
+
+/**
+ * True iff `binary` is a llama-server build that understands MTP (Multi-Token
+ * Prediction) speculative decoding — i.e. accepts `--spec-type draft-mtp`.
+ * Only builds after llama.cpp's 2026-05-16 merge advertise `draft-mtp` in
+ * `--help`. Result is cached per binary path (the binary doesn't change
+ * mid-run) so the spawn cost is paid at most once.
+ */
+export function llamaSupportsMtp(binary: string): boolean {
+  const cached = mtpSupportCache.get(binary);
+  if (cached !== undefined) return cached;
+  let supported = false;
+  try {
+    const r = spawnSync(binary, ['--help'], { encoding: 'utf8', timeout: 30000 });
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+    supported = /draft-mtp/.test(out);
+  } catch {
+    supported = false;
+  }
+  mtpSupportCache.set(binary, supported);
+  return supported;
+}

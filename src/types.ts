@@ -58,6 +58,21 @@ export interface Config {
    */
   noMmap?: boolean;
   /**
+   * MTP (Multi-Token Prediction) speculative decoding policy.
+   *   - `'auto'` (default): enable `--spec-type draft-mtp` whenever *both* the
+   *     llama-server build accepts the flag *and* the GGUF actually ships MTP
+   *     head tensors. Either gate failing silently skips it — no startup risk.
+   *   - `'off'`: never pass the flag.
+   * MTP gives a ~1.5–2x single-stream speedup with <10% extra memory and no
+   * separate draft model. Legacy configs missing this key default to 'auto'.
+   */
+  mtp?: 'auto' | 'off';
+  /**
+   * Max draft tokens per step for MTP (`--spec-draft-n-max`). Sensible range
+   * is 2–4; unset means locca uses 3, the common default.
+   */
+  mtpDraftMax?: number;
+  /**
    * Metadata about a locca-managed llama.cpp install (downloaded by
    * `locca install-llama`). When present, llamaServer/llamaCli/llamaBench
    * point into ~/.locca/bin/llama-cpp/<dir>/. Used by doctor to report
