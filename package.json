@@ -1,6 +1,6 @@
 {
   "name": "@zeiq/locca",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "TUI for managing local LLM inference with llama.cpp",
   "type": "module",
   "bin": {
