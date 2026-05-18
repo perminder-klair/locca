@@ -29,7 +29,7 @@ Every command that needs an LLM calls `serverStatus(cfg)`, which classifies the 
 
 `refuseIfPortTaken()` (`src/preflight.ts`) runs *after* `serverStatus()` and only fires when the port is occupied by something that does **not** answer `/health` — i.e. a non-llama service. Don't reorder these: `serverStatus` must run first so the "attached" case isn't misreported as a conflict.
 
-`buildServerArgs()` bakes in flags tuned for AMD Strix Halo / Radeon 890M (Vulkan, `--n-gpu-layers 999`, `--flash-attn on`, q8_0 KV cache, `--parallel 1`, `--cache-reuse 256`, `--batch-size 1024`, `--jinja`). If a sibling `mmproj*.gguf` is detected, `--mmproj` is auto-injected.
+`buildServerArgs()` bakes in flags tuned for AMD Strix Halo / Radeon 890M (Vulkan, `--n-gpu-layers 999`, `--flash-attn on`, q8_0 KV cache, `--parallel` from `cfg.defaultParallel` (default 1) — `--cache-reuse 256`, `--batch-size 1024`, `--jinja`). If a sibling `mmproj*.gguf` is detected, `--mmproj` is auto-injected.
 
 `waitReady()` polls `/health`, **not** `/v1/models` — `/health` flips green when the HTTP listener binds, while `/v1/models` only answers post-weights-load. On big models that's a 10–30s gap that previously caused spurious timeouts.
 

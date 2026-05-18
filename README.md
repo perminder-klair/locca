@@ -91,7 +91,7 @@ The same output prints automatically after `locca serve` succeeds.
 | `--n-gpu-layers 999` | All layers on GPU |
 | `--flash-attn on` | Flash attention |
 | `--cache-type-k q8_0 --cache-type-v q8_0` | Quantized KV cache (4× smaller than f16) |
-| `--parallel 1` | Full context to a single slot |
+| `--parallel 1` | Full context to a single slot — raise `defaultParallel` in config for N concurrent slots (splits ctx evenly) |
 | `--cache-reuse 256` | KV reuse across multi-turn requests |
 | `--batch-size 1024` | Larger prompt-processing batches (faster on iGPUs) |
 | `--jinja` | Proper chat template handling |
@@ -186,6 +186,7 @@ by hand, or re-run the wizard:
   "piExtensions": true,
   "piContextFiles": false,
   "vramBudgetMB": 16384,
+  "defaultParallel": 1,
   "noMmap": false
 }
 ```

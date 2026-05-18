@@ -116,6 +116,17 @@ const SCHEMA: Field[] = [
   { key: 'piExtensions', label: 'Enable pi extensions', kind: 'boolean' },
   { key: 'piContextFiles', label: 'Enable pi context files', kind: 'boolean' },
   {
+    key: 'defaultParallel',
+    label: 'Concurrent server slots',
+    kind: 'number',
+    hint: 'llama-server --parallel; splits ctx evenly across slots',
+    presets: [
+      { value: 1, label: '1', hint: 'recommended — full context to a single slot' },
+      { value: 2, label: '2', hint: 'two concurrent clients — each gets half the ctx' },
+      { value: 4, label: '4', hint: 'four concurrent clients — each gets a quarter of the ctx' },
+    ],
+  },
+  {
     key: 'noMmap',
     label: 'Pass --no-mmap to llama-server',
     kind: 'boolean',

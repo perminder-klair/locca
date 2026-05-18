@@ -273,6 +273,12 @@ export interface ServeOpts {
    * GPUs and Apple Silicon mmap is faster and saves resident RAM.
    */
   noMmap?: boolean;
+  /**
+   * Concurrent server slots (`--parallel`). Defaults to 1 when omitted.
+   * Usually filled from `cfg.defaultParallel`. llama-server splits
+   * `--ctx-size` evenly across slots.
+   */
+  parallel?: number;
 }
 
 const COMMON_ARGS = [
@@ -284,8 +290,6 @@ const COMMON_ARGS = [
   'q8_0',
   '--cache-type-v',
   'q8_0',
-  '--parallel',
-  '1',
   '--cache-reuse',
   '256',
   '--batch-size',
@@ -294,6 +298,9 @@ const COMMON_ARGS = [
 ];
 
 export function buildServerArgs(opts: ServeOpts): string[] {
+  // Slot count: honour opts.parallel, but guard against bad/zero values.
+  const parallel =
+    Number.isInteger(opts.parallel) && (opts.parallel as number) > 0 ? (opts.parallel as number) : 1;
   const args = [
     '--model',
     opts.modelPath,
@@ -304,6 +311,8 @@ export function buildServerArgs(opts: ServeOpts): string[] {
     '--threads',
     String(opts.threads),
     ...COMMON_ARGS,
+    '--parallel',
+    String(parallel),
     '--ctx-size',
     String(opts.ctx),
   ];

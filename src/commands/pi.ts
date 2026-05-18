@@ -98,6 +98,7 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
       host: '127.0.0.1',
       extraArgs: serverArgsForModel(basename(model.path)),
       noMmap: cfg.noMmap,
+      parallel: cfg.defaultParallel,
       detached: true,
     });
     const ready = await waitReady(port, 30);

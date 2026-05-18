@@ -118,6 +118,7 @@ async function ensureServer(cfg: Config, report: DoctorReport): Promise<ServerIn
     host: '127.0.0.1',
     extraArgs: serverArgsForModel(basename(model.path)),
     noMmap: cfg.noMmap,
+    parallel: cfg.defaultParallel,
     detached: true,
   });
   const ready = await waitReady(port, 60);

@@ -40,6 +40,13 @@ export interface Config {
    */
   vramBudgetMB?: number;
   /**
+   * Number of concurrent server slots (`--parallel`). Default `1` — the full
+   * context window goes to a single slot. Raise it to serve concurrent
+   * clients, but note llama-server splits `--ctx-size` evenly across slots,
+   * so per-request context shrinks unless `defaultCtx` is raised to match.
+   */
+  defaultParallel?: number;
+  /**
    * Pass `--no-mmap` to llama-server. Default `false` — mmap is faster and
    * lower-memory on dedicated-VRAM GPUs and Apple Silicon. Set `true` only
    * on Strix Halo / Ryzen AI MAX+ where independent measurements report

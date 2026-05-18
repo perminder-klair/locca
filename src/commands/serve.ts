@@ -92,6 +92,7 @@ export async function serve(): Promise<void> {
     threads,
     extraArgs: serverArgsForModel(basename(model.path)),
     noMmap: cfg.noMmap,
+    parallel: cfg.defaultParallel,
     // Detached: server keeps running after locca exits. Stop it with
     // `locca stop`. Logs go to the log file (see `locca logs`).
     detached: true,
