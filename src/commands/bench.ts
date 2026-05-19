@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import * as p from '@clack/prompts';
 import { CONFIG_FILE, loadConfig } from '../config.js';
+import { ggufHasMtpHead } from '../gguf.js';
 import { pickModel, scanModels } from '../models.js';
 import { buildStatsLine } from '../sys-stats.js';
 import { pc } from '../ui.js';
@@ -37,6 +38,22 @@ export async function bench(): Promise<void> {
 
   const model = await pickModel(models, 'Pick a model to benchmark');
   if (!model) return;
+
+  // Upstream llama-bench has no --spec-type flag, so it walks every block as
+  // a primary-model block and dies on the MTP head's different tensor layout
+  // (e.g. "missing tensor 'blk.N.ssm_conv1d.weight'"). serve/pi/optimise route
+  // around this via mtpArgsForModel(); bench has no equivalent escape hatch.
+  if (ggufHasMtpHead(model.path)) {
+    p.log.warn(
+      `${model.name} ships an MTP (Multi-Token Prediction) head.\n` +
+        `Upstream llama-bench has no --spec-type flag, so it can't route the\n` +
+        `MTP-head tensors and refuses to load the model.\n\n` +
+        `locca serve / pi / optimise handle this model fine — they auto-enable\n` +
+        `--spec-type draft-mtp. To benchmark, use the non-MTP variant of the\n` +
+        `same model (e.g. the …-GGUF repo instead of …-MTP-GGUF).`,
+    );
+    return;
+  }
 
   console.log();
   console.log(pc.magenta(`Benchmarking ${model.name}...`));
