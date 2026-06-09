@@ -32,22 +32,30 @@ export function configExists(): boolean {
 
 export function loadConfig(): Config {
   const base = defaults();
-  if (!existsSync(CONFIG_FILE)) return base;
-  try {
-    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) as Partial<Config> & {
-      piSkills?: Config['piSkills'] | boolean;
-    };
-    // Migrate legacy boolean piSkills → tri-state. true was the old "skills on"
-    // and false was the old "--no-skills" — neither matches the new default of
-    // 'lazy', so we preserve the user's prior intent rather than forcing it.
-    const { piSkills, ...rest } = raw;
-    const coerced: Partial<Config> = { ...rest };
-    if (typeof piSkills === 'boolean') coerced.piSkills = piSkills ? 'on' : 'off';
-    else if (piSkills !== undefined) coerced.piSkills = piSkills;
-    return { ...base, ...coerced };
-  } catch {
-    return base;
+  let cfg = base;
+  if (existsSync(CONFIG_FILE)) {
+    try {
+      const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) as Partial<Config> & {
+        piSkills?: Config['piSkills'] | boolean;
+      };
+      // Migrate legacy boolean piSkills → tri-state. true was the old "skills on"
+      // and false was the old "--no-skills" — neither matches the new default of
+      // 'lazy', so we preserve the user's prior intent rather than forcing it.
+      const { piSkills, ...rest } = raw;
+      const coerced: Partial<Config> = { ...rest };
+      if (typeof piSkills === 'boolean') coerced.piSkills = piSkills ? 'on' : 'off';
+      else if (piSkills !== undefined) coerced.piSkills = piSkills;
+      cfg = { ...base, ...coerced };
+    } catch {
+      cfg = base;
+    }
   }
+  // Env override for the models dir — there's no config file to edit inside a
+  // container, so this is how a Docker image points at a bind-mounted volume.
+  if (process.env.LOCCA_MODELS_DIR) {
+    cfg = { ...cfg, modelsDir: process.env.LOCCA_MODELS_DIR };
+  }
+  return cfg;
 }
 
 export function saveConfig(patch: Partial<Config>): Config {

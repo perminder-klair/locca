@@ -1,0 +1,51 @@
+# locca → llama.cpp OpenAI-compatible server, for SUB/WAVE and any other
+# openai-compatible client. Drop your GGUF files in ./models, then:
+#
+#   docker compose up -d
+#
+# Point SUB/WAVE at it: admin → Settings → LLM provider = openai-compatible,
+# base URL = http://locca:8080/v1 (if SUB/WAVE runs in this same compose
+# project) or http://<this-host-ip>:8080/v1 from elsewhere on the LAN.
+
+services:
+  locca:
+    build:
+      context: .
+      args:
+        # cpu (portable) or vulkan (AMD/Intel GPU — see the gpu block below)
+        LLAMA_BACKEND: cpu
+    # Model to serve: name or substring matched against files in ./models.
+    # Equivalent to `-e LOCCA_MODEL=qwen3.5-9b`.
+    command: ["qwen3.5-9b"]
+    environment:
+      # Context window. Lower this if a model won't fit (the GGML_ASSERT
+      # crash some Ollama users hit is often parallel slots × big ctx).
+      LOCCA_CTX: "16384"
+      # LOCCA_MODEL: qwen3.5-9b   # alternative to `command:` above
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      # Node ships in the image — use it to probe llama-server's /health.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      # Big models can take a while to load before /health goes green.
+      start_period: 180s
+
+    # ── AMD / Intel GPU (Vulkan) ────────────────────────────────────────
+    # Build with LLAMA_BACKEND: vulkan above, then uncomment:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # group_add:
+    #   - video
+    #   - render

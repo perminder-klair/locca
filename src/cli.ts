@@ -59,7 +59,7 @@ async function dispatch(): Promise<void> {
     case 'serve':
     case 'start': {
       const m = await import('./commands/serve.js');
-      await m.serve();
+      await m.serve(rest);
       return;
     }
     case 'embed':

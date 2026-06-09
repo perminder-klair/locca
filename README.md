@@ -49,7 +49,7 @@ npm link              # symlinks `locca` into your PATH
 ```
 locca                          # interactive menu (Pi is default)
 locca pi [model-pattern]       # launch pi against a local server
-locca serve                    # start llama-server with a picked model (detached)
+locca serve [model] [opts]     # start llama-server (interactive pick, or head-less: `locca serve qwen3.5-9b`)
 locca switch                   # picker: installed models + curated catalog
 locca bench                    # run llama-bench against a model
 locca doctor                   # health check: hardware, llama.cpp, server, log, config
@@ -82,6 +82,72 @@ working ones show up. Handy for pointing a phone or another machine at
 the same server.
 
 The same output prints automatically after `locca serve` succeeds.
+
+## Head-less `serve`
+
+`locca serve` is interactive by default — it prompts for the model and
+settings. Pass a model name (or set `LOCCA_MODEL`) and it runs with no
+prompts, which is what you need in Docker, systemd, or CI where there's no
+terminal:
+
+```
+locca serve qwen3.5-9b                     # config defaults, detached
+locca serve qwen3.5-9b -p 8080 -c 16384    # explicit port + context
+locca serve qwen3.5-9b -f                  # foreground: streams logs, stays up until killed
+```
+
+The model argument is a substring match against your models dir (same as
+`locca pi qwen`). With no TTY and no model named, `serve` prints a clear
+error and lists the available models instead of hanging on the picker.
+
+| Flag | Env | Default |
+|---|---|---|
+| `-p, --port` | `LOCCA_PORT` | config `defaultPort` |
+| `-c, --ctx` | `LOCCA_CTX` | config `defaultCtx` |
+| `-t, --threads` | `LOCCA_THREADS` | config `defaultThreads` |
+| `-H, --host` | `LOCCA_HOST` | `0.0.0.0` |
+| `-f, --foreground` | `LOCCA_FOREGROUND=1` | off (detached) |
+| `-y, --yes` | — | accept defaults, no prompts |
+
+`-f` (foreground) makes locca the supervisor of `llama-server`: logs go to
+stdout, SIGTERM/Ctrl-C stops it cleanly, and locca exits only when the
+server does. That's the right shape for a container's main process.
+
+## Running in Docker
+
+The repo ships a `Dockerfile` and `docker-compose.yml` that run llama.cpp's
+OpenAI-compatible server head-less — handy if you're pointing a tool like
+[SUB/WAVE](https://github.com/perminder-klair/subwave) at a local model and
+want to control the llama.cpp version and flags yourself (instead of
+whatever Ollama bundles).
+
+```bash
+# Build (CPU — runs anywhere)
+docker build -t locca .
+
+# Run: mount your GGUF models, name the model to serve
+docker run --rm -p 8080:8080 \
+    -v /path/to/models:/models:ro \
+    locca qwen3.5-9b
+```
+
+Or with compose — drop GGUFs in `./models`, set the model in
+`docker-compose.yml`, then `docker compose up -d`.
+
+Point any OpenAI-compatible client at `http://<host>:8080/v1`. In SUB/WAVE:
+**admin → Settings → LLM provider = `openai-compatible`**, base URL
+`http://locca:8080/v1` (same compose network) or `http://<host-ip>:8080/v1`
+from elsewhere. No API key is required.
+
+**Models** mount at `/models` (overridable with `LOCCA_MODELS_DIR`).
+**GPU:** build with `--build-arg LLAMA_BACKEND=vulkan` and pass
+`--device /dev/dri` (AMD/Intel) — see the commented block in
+`docker-compose.yml`. The default CPU build needs no GPU and runs anywhere.
+
+> If you hit the `GGML_ASSERT(n_inputs < GGML_SCHED_MAX_SPLIT_INPUTS)` crash
+> (a known llama.cpp assert that kills the server mid-request), it's usually
+> parallel slots combined with a large context. locca defaults to
+> `--parallel 1`; lowering `LOCCA_CTX` is the other lever.
 
 ## Server defaults
 
