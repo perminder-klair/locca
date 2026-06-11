@@ -43,6 +43,19 @@ const SCHEMA: Field[] = [
   },
   { key: 'defaultPort', label: 'Default server port', kind: 'number' },
   {
+    key: 'defaultEmbedPort',
+    label: 'Embedding server port',
+    kind: 'number',
+    hint: 'port for `locca embed`; must differ from defaultPort',
+  },
+  {
+    key: 'defaultEmbedModel',
+    label: 'Embedding sidecar model',
+    kind: 'string',
+    optional: true,
+    hint: 'filename/substring to auto-start alongside `locca serve`; empty = none',
+  },
+  {
     key: 'defaultCtx',
     label: 'Default context size',
     kind: 'number',

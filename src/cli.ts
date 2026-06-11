@@ -7,14 +7,15 @@ function printHelp(): void {
   console.log(`Usage: locca [command]
 
 Inference:
-  serve       Start API server with a model (detached)
-  pi [name]   Launch pi coding agent with a local model
-  switch      Stop current server and start a new model with pi
-  stop        Stop running server
-  bench       Benchmark a model
+  serve         Start API server with a model (detached)
+  embed [name]  Start a dedicated embedding server (separate port)
+  pi [name]     Launch pi coding agent with a local model
+  switch        Stop current server and start a new model with pi
+  stop          Stop running server(s)
+  bench         Benchmark a model
 
-  logs        Tail llama-server log (pi-started servers)
-  api         Print OpenAI-compatible connection info
+  logs [embed]  Tail llama-server log (chat by default, or embed)
+  api           Print OpenAI-compatible connection info
 
 Models:
   download    Download model from HuggingFace
@@ -61,6 +62,12 @@ async function dispatch(): Promise<void> {
       await m.serve();
       return;
     }
+    case 'embed':
+    case 'embeddings': {
+      const m = await import('./commands/embed.js');
+      await m.embed(rest);
+      return;
+    }
     case 'pi': {
       const m = await import('./commands/pi.js');
       await m.pi(rest);
@@ -80,7 +87,7 @@ async function dispatch(): Promise<void> {
     case 'logs':
     case 'log': {
       const m = await import('./commands/logs.js');
-      await m.logs();
+      await m.logs(rest);
       return;
     }
     case 'bench': {

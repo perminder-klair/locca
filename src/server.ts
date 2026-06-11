@@ -5,8 +5,30 @@ import { join } from 'node:path';
 import type { Config } from './types.js';
 
 const RUNDIR = process.env.XDG_RUNTIME_DIR ?? '/tmp';
-export const PIDFILE = join(RUNDIR, 'locca-server.pid');
-export const LOGFILE = join(RUNDIR, 'locca-server.log');
+
+/**
+ * locca can run two servers side by side: the chat/generative server (`serve`,
+ * `pi`) and a dedicated embedding server (`embed`). Each gets its own PIDFILE,
+ * logfile, and port so their lifecycles are independent.
+ */
+export type ServerRole = 'chat' | 'embed';
+
+export function pidFile(role: ServerRole = 'chat'): string {
+  return join(RUNDIR, role === 'embed' ? 'locca-embed.pid' : 'locca-server.pid');
+}
+export function logFile(role: ServerRole = 'chat'): string {
+  return join(RUNDIR, role === 'embed' ? 'locca-embed.log' : 'locca-server.log');
+}
+
+/** Default port for a role: chat → `defaultPort`, embed → `defaultEmbedPort`. */
+export function portForRole(cfg: Config, role: ServerRole = 'chat'): number {
+  return role === 'embed' ? (cfg.defaultEmbedPort ?? 8090) : cfg.defaultPort;
+}
+
+// Back-compat aliases for the chat server's runtime files. Existing imports
+// (`logs`, `pi`, docs) reference these directly.
+export const PIDFILE = pidFile('chat');
+export const LOGFILE = logFile('chat');
 
 export function isAlive(pid: number): boolean {
   try {
@@ -158,16 +180,21 @@ export async function probeServer(
 }
 
 /**
- * Resolve current server status, in priority order:
- *   1. PIDFILE exists + alive  → use that (source: 'pid').
- *   2. Local default port responds → use it (source: 'attached').
+ * Resolve current server status for a role, in priority order:
+ *   1. role PIDFILE exists + alive  → use that (source: 'pid').
+ *   2. Local role port responds     → use it (source: 'attached').
  *   3. Otherwise nothing.
+ *
+ * `role` defaults to `'chat'` so every existing caller is unchanged. Pass
+ * `'embed'` to inspect the embedding sidecar (its own PIDFILE + port).
  */
-export async function serverStatus(cfg: Config): Promise<ServerStatus> {
-  if (existsSync(PIDFILE)) {
+export async function serverStatus(cfg: Config, role: ServerRole = 'chat'): Promise<ServerStatus> {
+  const pf = pidFile(role);
+  const rolePort = portForRole(cfg, role);
+  if (existsSync(pf)) {
     let pid = NaN;
     try {
-      pid = parseInt(readFileSync(PIDFILE, 'utf8').trim(), 10);
+      pid = parseInt(readFileSync(pf, 'utf8').trim(), 10);
     } catch {
       // fall through to cleanup
     }
@@ -175,7 +202,7 @@ export async function serverStatus(cfg: Config): Promise<ServerStatus> {
       const args = readArgs(pid);
       const portMatch = args.match(/--port\s+(\d+)/);
       const modelMatch = args.match(/--model\s+(\S+\.gguf)/);
-      const port = portMatch ? parseInt(portMatch[1]!, 10) : cfg.defaultPort;
+      const port = portMatch ? parseInt(portMatch[1]!, 10) : rolePort;
       return {
         running: true,
         source: 'pid',
@@ -186,22 +213,22 @@ export async function serverStatus(cfg: Config): Promise<ServerStatus> {
       };
     }
     try {
-      unlinkSync(PIDFILE);
+      unlinkSync(pf);
     } catch {
       // ignore
     }
   }
 
-  // Maybe something's already on our default port (a llama-server started
+  // Maybe something's already on the role's port (a llama-server started
   // outside locca — by hand, by a supervisor, by another tool).
-  const localUrl = `http://127.0.0.1:${cfg.defaultPort}`;
+  const localUrl = `http://127.0.0.1:${rolePort}`;
   const probe = await probeServer(localUrl, 600);
   if (probe.alive) {
     return {
       running: true,
       source: 'attached',
       url: localUrl,
-      port: cfg.defaultPort,
+      port: rolePort,
       model: probe.model,
     };
   }
@@ -227,8 +254,8 @@ export type StopResult = { stopped: true; pid: number } | { stopped: false; reas
  * Stop the server locca started. Refuses to touch attached servers —
  * those need to be stopped via the tool that started them.
  */
-export async function stopServer(cfg: Config): Promise<StopResult> {
-  const s = await serverStatus(cfg);
+export async function stopServer(cfg: Config, role: ServerRole = 'chat'): Promise<StopResult> {
+  const s = await serverStatus(cfg, role);
   if (!s.running) return { stopped: false, reason: 'no server running' };
   if (s.source === 'attached') {
     return {
@@ -244,7 +271,7 @@ export async function stopServer(cfg: Config): Promise<StopResult> {
     }
   }
   try {
-    unlinkSync(PIDFILE);
+    unlinkSync(pidFile(role));
   } catch {
     // ignore
   }
@@ -276,9 +303,22 @@ export interface ServeOpts {
   /**
    * Concurrent server slots (`--parallel`). Defaults to 1 when omitted.
    * Usually filled from `cfg.defaultParallel`. llama-server splits
-   * `--ctx-size` evenly across slots.
+   * `--ctx-size` evenly across slots. Ignored in embedding mode.
    */
   parallel?: number;
+  /**
+   * `'chat'` (default) bakes in the generative flags (`COMMON_ARGS`:
+   * `--jinja`, flash-attn, quantized KV cache, `--parallel`). `'embedding'`
+   * swaps in `--embeddings --pooling … --ubatch-size <ctx>` and drops every
+   * chat-only flag — that combination is what avoids llama.cpp's
+   * "Pooling type 'none' is not OAI compatible" / "does not support embeddings"
+   * walls.
+   */
+  mode?: 'chat' | 'embedding';
+  /** Pooling type for embedding mode (`--pooling`). Defaults to `'mean'`. */
+  pooling?: 'mean' | 'cls' | 'last';
+  /** Which runtime files (PIDFILE/logfile) to write. Defaults to `'chat'`. */
+  role?: ServerRole;
 }
 
 const COMMON_ARGS = [
@@ -297,7 +337,10 @@ const COMMON_ARGS = [
   '--jinja',
 ];
 
+const EMBED_ARGS = ['--n-gpu-layers', '999', '--embeddings'];
+
 export function buildServerArgs(opts: ServeOpts): string[] {
+  if (opts.mode === 'embedding') return buildEmbedArgs(opts);
   // Slot count: honour opts.parallel, but guard against bad/zero values.
   const parallel =
     Number.isInteger(opts.parallel) && (opts.parallel as number) > 0 ? (opts.parallel as number) : 1;
@@ -324,21 +367,59 @@ export function buildServerArgs(opts: ServeOpts): string[] {
   return args;
 }
 
+/**
+ * Argv for an embedding server. Deliberately *not* `COMMON_ARGS` + tweaks:
+ *   - `--embeddings --pooling <type>` is what makes `/v1/embeddings` work and
+ *     sidesteps the "Pooling type 'none'" error you get bolting `--embeddings`
+ *     onto a chat launch.
+ *   - `--ubatch-size == --batch-size == ctx`: non-causal encoder models must
+ *     process the whole sequence in one micro-batch, so the ubatch has to be
+ *     at least as large as the longest input.
+ *   - No `--jinja`, no flash-attn, no quantized KV cache, no `--parallel`,
+ *     no `--mmproj`, no sampler/MTP `extraArgs` — none apply to an encoder.
+ */
+function buildEmbedArgs(opts: ServeOpts): string[] {
+  const args = [
+    '--model',
+    opts.modelPath,
+    '--host',
+    opts.host ?? '0.0.0.0',
+    '--port',
+    String(opts.port),
+    '--threads',
+    String(opts.threads),
+    ...EMBED_ARGS,
+    '--pooling',
+    opts.pooling ?? 'mean',
+    '--ctx-size',
+    String(opts.ctx),
+    '--ubatch-size',
+    String(opts.ctx),
+    '--batch-size',
+    String(opts.ctx),
+  ];
+  if (opts.noMmap) args.push('--no-mmap');
+  if (opts.extraArgs?.length) args.push(...opts.extraArgs);
+  return args;
+}
+
 /** Launch llama-server. Returns the child process; caller decides how to wait. */
 export function launchServer(opts: ServeOpts): ChildProcess {
   const args = buildServerArgs(opts);
+  const role = opts.role ?? 'chat';
+  const pf = pidFile(role);
   if (opts.detached) {
-    const fd = openSync(LOGFILE, 'a');
+    const fd = openSync(logFile(role), 'a');
     const child = spawn(opts.llamaServer, args, {
       detached: true,
       stdio: ['ignore', fd, fd],
     });
     child.unref();
-    if (child.pid) writeFileSync(PIDFILE, `${child.pid}\n`);
+    if (child.pid) writeFileSync(pf, `${child.pid}\n`);
     return child;
   }
   const child = spawn(opts.llamaServer, args, { stdio: 'inherit' });
-  if (child.pid) writeFileSync(PIDFILE, `${child.pid}\n`);
+  if (child.pid) writeFileSync(pf, `${child.pid}\n`);
   return child;
 }
 

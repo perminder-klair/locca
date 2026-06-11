@@ -20,6 +20,7 @@ function defaults(): Config {
     piSkills: 'lazy',
     piExtensions: true,
     defaultParallel: 1,
+    defaultEmbedPort: 8090,
     noMmap: false,
     mtp: 'auto',
   };

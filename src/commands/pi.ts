@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
-import { mtpArgsForModel, serverArgsForModel } from '../catalog.js';
+import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama, requirePi } from '../deps.js';
 import { ctxForModel, findFirstMatch, pickModel, scanModels } from '../models.js';
@@ -31,15 +31,26 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
   // ── Local mode: we manage llama-server ──────────────────────────────
   requireLlama(cfg);
 
-  const models = scanModels(cfg.modelsDir);
-  if (models.length === 0) {
+  const allModels = scanModels(cfg.modelsDir);
+  if (allModels.length === 0) {
     p.log.error(`No models found in ${cfg.modelsDir}`);
     process.exit(1);
   }
 
+  // pi drives a chat model; embedding models can't fill that role. Keep them
+  // out of the picker (a positional pattern still searches the full list so an
+  // explicit, deliberate match isn't silently dropped).
+  const chatModels = allModels.filter((m) => !isEmbeddingModelName(m.name));
+  if (!pattern && chatModels.length === 0) {
+    p.log.error(
+      `Only embedding models found in ${cfg.modelsDir}. pi needs a chat model — download one with \`locca download\`.`,
+    );
+    process.exit(1);
+  }
+
   const model = pattern
-    ? findFirstMatch(models, pattern)
-    : await pickModel(models, 'Pick a model for pi');
+    ? findFirstMatch(allModels, pattern)
+    : await pickModel(chatModels, 'Pick a model for pi');
 
   if (!model) {
     if (pattern) p.log.error(`No model matching '${pattern}'`);

@@ -14,6 +14,7 @@ import { config } from './commands/config.js';
 import { del } from './commands/delete.js';
 import { doctor } from './commands/doctor.js';
 import { download, downloadCatalogEntry } from './commands/download.js';
+import { embed } from './commands/embed.js';
 import { logs } from './commands/logs.js';
 import { optimise } from './commands/optimise.js';
 import { pi } from './commands/pi.js';
@@ -30,6 +31,7 @@ import { formatGB, have } from './util.js';
 type Action =
   | 'pi'
   | 'serve'
+  | 'embed'
   | 'switch'
   | 'download'
   | 'search'
@@ -54,16 +56,19 @@ export async function menu(): Promise<void> {
     // "back to menu" loop doesn't keep redrawing two screens of art.
     printBanner({ tagline: firstRender });
     firstRender = false;
-    const serverRunning = await renderServerLine();
+    const running = await renderServerLine();
     renderSetupAlerts();
     console.log();
 
     const options: { value: Action; label: string }[] = [
       { value: 'pi', label: 'Pi       — coding agent (local)' },
       { value: 'serve', label: 'Serve    — start API server' },
+      { value: 'embed', label: 'Embed    — start embedding server (separate port)' },
     ];
-    if (serverRunning) {
-      options.push({ value: 'stop', label: 'Stop     — stop server' });
+    if (running.chat || running.embed) {
+      options.push({ value: 'stop', label: 'Stop     — stop server(s)' });
+    }
+    if (running.chat) {
       options.push({
         value: 'switch',
         label: 'Switch   — swap server to a different model',
@@ -132,26 +137,34 @@ async function pauseUntilEnter(): Promise<void> {
  * for ctx + slot count — best-effort, missing fields are simply elided so a
  * llama-server build that doesn't expose them still renders cleanly.
  */
-async function renderServerLine(): Promise<boolean> {
+async function renderServerLine(): Promise<{ chat: boolean; embed: boolean }> {
   const cfg = loadConfig();
-  const s = await serverStatus(cfg);
-  if (!s.running) {
-    p.note(pc.dim('○ No server running'), 'Server');
-    return false;
-  }
-  const sourceLabel = s.source === 'pid' ? `running (pid ${s.pid})` : 'attached';
-  const lines: string[] = [];
-  lines.push(`${pc.green('●')} ${pc.bold(sourceLabel)} on :${s.port}`);
-  if (s.model) lines.push(pc.dim(s.model));
+  const [s, e] = await Promise.all([serverStatus(cfg, 'chat'), serverStatus(cfg, 'embed')]);
 
-  const props = await probeServerProps(s.url);
-  const subBits: string[] = [];
-  if (props.ctx) subBits.push(`ctx ${props.ctx.toLocaleString('en-US')}`);
-  if (props.slots) subBits.push(`${props.slots} slot${props.slots === 1 ? '' : 's'}`);
-  if (subBits.length) lines.push(pc.dim(subBits.join(' · ')));
+  if (!s.running && !e.running) {
+    p.note(pc.dim('○ No server running'), 'Server');
+    return { chat: false, embed: false };
+  }
+
+  const lines: string[] = [];
+  if (s.running) {
+    const sourceLabel = s.source === 'pid' ? `running (pid ${s.pid})` : 'attached';
+    lines.push(`${pc.green('●')} chat — ${pc.bold(sourceLabel)} on :${s.port}`);
+    if (s.model) lines.push(pc.dim(`  ${s.model}`));
+    const props = await probeServerProps(s.url);
+    const subBits: string[] = [];
+    if (props.ctx) subBits.push(`ctx ${props.ctx.toLocaleString('en-US')}`);
+    if (props.slots) subBits.push(`${props.slots} slot${props.slots === 1 ? '' : 's'}`);
+    if (subBits.length) lines.push(pc.dim(`  ${subBits.join(' · ')}`));
+  }
+  if (e.running) {
+    const sourceLabel = e.source === 'pid' ? `running (pid ${e.pid})` : 'attached';
+    lines.push(`${pc.green('●')} embed — ${pc.bold(sourceLabel)} on :${e.port}`);
+    if (e.model) lines.push(pc.dim(`  ${e.model}`));
+  }
 
   p.note(lines.join('\n'), 'llama-server');
-  return true;
+  return { chat: s.running, embed: e.running };
 }
 
 /**
@@ -196,6 +209,9 @@ async function runAction(action: Exclude<Action, 'quit'>): Promise<void> {
       break;
     case 'serve':
       await serve();
+      break;
+    case 'embed':
+      await embed([]);
       break;
     case 'switch':
       await switchModel();
@@ -464,7 +480,8 @@ interface CatalogRow {
 
 function catalogRows(budget: ReturnType<typeof memoryBudget>): CatalogRow[] {
   const buckets = new Map<string, CatalogEntry[]>();
-  for (const e of allEntries()) {
+  // Chat only — switching the chat server to an embedding model makes no sense.
+  for (const e of allEntries({ kind: 'chat' })) {
     const k = `${e.family.name}|${e.size.name}`;
     const list = buckets.get(k);
     if (list) list.push(e);

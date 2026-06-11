@@ -330,7 +330,9 @@ interface FirstRunRow {
  * rows stay visible so users learn what their RAM can reach.
  */
 function pickBuildsForFirstRunMenu(budget: ReturnType<typeof memoryBudget>): FirstRunRow[] {
-  const entries = allEntries();
+  // Chat only — a first-time user needs something they can actually chat with;
+  // embedding models are downloaded later via `locca download` / `locca embed`.
+  const entries = allEntries({ kind: 'chat' });
   // Group by (family.name, size.name) so we render one row per size.
   const buckets = new Map<string, CatalogEntry[]>();
   for (const e of entries) {
