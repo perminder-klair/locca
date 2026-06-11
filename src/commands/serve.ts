@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
-import { mtpArgsForModel, serverArgsForModel } from '../catalog.js';
+import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
 import { pickModel, scanModels } from '../models.js';
@@ -9,6 +9,7 @@ import { launchServer, serverStatus, stopServer, waitReady } from '../server.js'
 import type { Model } from '../types.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { api } from './api.js';
+import { startEmbeddingSidecar } from './embed.js';
 
 export async function serve(): Promise<void> {
   const cfg = loadConfig();
@@ -37,7 +38,17 @@ export async function serve(): Promise<void> {
     process.exit(1);
   }
 
-  const model = await pickModel(models, 'Pick a model to serve');
+  // Embedding models can't serve chat (they'd hit the "Pooling type 'none'"
+  // wall). Keep them out of the chat picker and point users at `locca embed`.
+  const chatModels = models.filter((m) => !isEmbeddingModelName(m.name));
+  if (chatModels.length === 0) {
+    p.log.error(
+      `Only embedding models found in ${cfg.modelsDir}. Serve those with \`locca embed\`, or download a chat model with \`locca download\`.`,
+    );
+    process.exit(1);
+  }
+
+  const model = await pickModel(chatModels, 'Pick a model to serve');
   if (!model) return;
 
   const choice = await p.select({
@@ -105,6 +116,14 @@ export async function serve(): Promise<void> {
   if (!ready) {
     p.log.warn('Server did not become ready within 60s — run `locca logs` to see output.');
     return;
+  }
+
+  // Bring up the embedding sidecar if one is configured. Best-effort: a
+  // failure here is reported but never blocks the chat server.
+  const sidecar = await startEmbeddingSidecar(cfg);
+  if (sidecar) {
+    console.log(`  ${sidecar}`);
+    console.log();
   }
 
   // Show the OpenAI-compatible connection info — same output as

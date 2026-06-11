@@ -47,6 +47,21 @@ export interface Config {
    */
   defaultParallel?: number;
   /**
+   * Port for the dedicated embedding sidecar (`locca embed`). Default `8090`.
+   * Kept distinct from `defaultPort` on purpose — embeddings and chat are two
+   * separate llama-server processes that run side by side, so they can't share
+   * a port. Change it if 8090 is taken.
+   */
+  defaultEmbedPort?: number;
+  /**
+   * Embedding model to bring up as a sidecar alongside the chat server.
+   * A filename or substring matched against `modelsDir` (same rules as the
+   * `locca pi <pattern>` positional). When set, `locca serve` also launches
+   * the embedding server on `defaultEmbedPort`, and `locca stop` stops both.
+   * Unset (default) means no sidecar — run `locca embed` by hand when needed.
+   */
+  defaultEmbedModel?: string;
+  /**
    * Pass `--no-mmap` to llama-server. Default `false` — mmap is faster and
    * lower-memory on dedicated-VRAM GPUs and Apple Silicon. Set `true` only
    * on Strix Halo / Ryzen AI MAX+ where independent measurements report

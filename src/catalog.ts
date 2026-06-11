@@ -43,6 +43,15 @@ export interface CatalogSize {
   ctxWindow: number;
   /** KV-cache slope: bytes per 1000 tokens at the model's default cache types. */
   ctxBytesPer1kTokens: number;
+  /**
+   * Pooling type llama-server must serve this embedding model with
+   * (`--pooling`). Only meaningful for `kind: 'embedding'` families — the wrong
+   * value yields wrong vectors (nomic = mean, mxbai/bge = cls). Ignored for
+   * chat models.
+   */
+  pooling?: 'mean' | 'cls' | 'last';
+  /** Output embedding dimensionality (informational; shown by `locca api`). */
+  embedDim?: number;
   /** Builds, primary (full-precision) first, then quantized variants. */
   builds: CatalogBuild[];
   /** Vision projector (optional). When present, server boots with --mmproj. */
@@ -57,6 +66,15 @@ export interface CatalogFamily {
   name: string;
   series: string;
   description: string;
+  /**
+   * What this family is for. `'chat'` (default) = a generative chat/instruct
+   * model served on the main port. `'embedding'` = a dedicated embedding model
+   * served by `locca embed` with `--embeddings --pooling …` and *none* of the
+   * chat-only flags (no sampler, no `--jinja`). Chat-only pickers (serve, pi,
+   * setup, switch) filter embedding families out so they're never launched as
+   * a chat model by mistake.
+   */
+  kind?: 'chat' | 'embedding';
   /** Sampler/server defaults the family was tuned with. */
   serverArgs?: string[];
   /** weights · overheadMultiplier ≈ resident bytes. Default 1.05. */
@@ -73,6 +91,8 @@ export interface CatalogEntry {
   size: CatalogSize;
   build: CatalogBuild;
   hasVision: boolean;
+  /** `family.kind ?? 'chat'`, surfaced flat for easy filtering. */
+  kind: 'chat' | 'embedding';
 }
 
 const DEFAULT_OVERHEAD = 1.05;
@@ -318,6 +338,114 @@ export const catalog: CatalogFamily[] = [
       },
     ],
   },
+
+  // ── Embedding models ───────────────────────────────────────────────────
+  // Served by `locca embed` with `--embeddings --pooling <type>` on a separate
+  // port. These are tiny encoder models (no KV cache to speak of), so the
+  // ctxBytesPer1kTokens slope is nominal — they fit on anything. `pooling` is
+  // load-bearing: the wrong value silently returns wrong vectors.
+  {
+    name: 'Nomic Embed',
+    series: 'nomic',
+    kind: 'embedding',
+    description:
+      'Long-context English text embeddings (768-dim, Matryoshka-truncatable). Mean pooling; expects search_query:/search_document: task prefixes.',
+    overheadMultiplier: 1.2,
+    sizes: [
+      {
+        name: 'v1.5',
+        parameterCount: 137_000_000,
+        ctxWindow: 8192,
+        ctxBytesPer1kTokens: 4_194_304,
+        pooling: 'mean',
+        embedDim: 768,
+        builds: [
+          {
+            quantization: 'Q8_0',
+            fileSize: 146_146_432,
+            hfRepo: 'nomic-ai/nomic-embed-text-v1.5-GGUF',
+            hfFile: 'nomic-embed-text-v1.5.Q8_0.gguf',
+            isFullPrecision: true,
+          },
+          {
+            quantization: 'Q4_K_M',
+            fileSize: 84_106_624,
+            hfRepo: 'nomic-ai/nomic-embed-text-v1.5-GGUF',
+            hfFile: 'nomic-embed-text-v1.5.Q4_K_M.gguf',
+            isFullPrecision: false,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'mxbai Embed Large',
+    series: 'mxbai',
+    kind: 'embedding',
+    description:
+      "mixedbread.ai's high-quality English embeddings (1024-dim). CLS pooling; 512-token window.",
+    overheadMultiplier: 1.2,
+    sizes: [
+      {
+        name: 'v1',
+        parameterCount: 335_000_000,
+        ctxWindow: 512,
+        ctxBytesPer1kTokens: 8_388_608,
+        pooling: 'cls',
+        embedDim: 1024,
+        builds: [
+          {
+            quantization: 'Q8_0',
+            fileSize: 358_235_712,
+            hfRepo: 'ChristianAzinn/mxbai-embed-large-v1-gguf',
+            hfFile: 'mxbai-embed-large-v1.Q8_0.gguf',
+            isFullPrecision: true,
+          },
+          {
+            quantization: 'Q4_K_M',
+            fileSize: 215_891_488,
+            hfRepo: 'ChristianAzinn/mxbai-embed-large-v1-gguf',
+            hfFile: 'mxbai-embed-large-v1.Q4_K_M.gguf',
+            isFullPrecision: false,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: 'BGE-M3',
+    series: 'bge',
+    kind: 'embedding',
+    description:
+      'Multilingual (100+ languages), long-context (8192) dense embeddings (1024-dim) from BAAI. CLS pooling.',
+    overheadMultiplier: 1.2,
+    sizes: [
+      {
+        name: '567M',
+        parameterCount: 567_000_000,
+        ctxWindow: 8192,
+        ctxBytesPer1kTokens: 8_388_608,
+        pooling: 'cls',
+        embedDim: 1024,
+        builds: [
+          {
+            quantization: 'Q8_0',
+            fileSize: 634_553_760,
+            hfRepo: 'gpustack/bge-m3-GGUF',
+            hfFile: 'bge-m3-Q8_0.gguf',
+            isFullPrecision: true,
+          },
+          {
+            quantization: 'Q4_K_M',
+            fileSize: 437_778_496,
+            hfRepo: 'gpustack/bge-m3-GGUF',
+            hfFile: 'bge-m3-Q4_K_M.gguf',
+            isFullPrecision: false,
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 /**
@@ -339,13 +467,17 @@ function makeEntry(family: CatalogFamily, size: CatalogSize, build: CatalogBuild
     size,
     build,
     hasVision: Boolean(size.mmprojRepo && size.mmprojFile),
+    kind: family.kind ?? 'chat',
   };
 }
 
-export function allEntries(opts: { includeDeprecated?: boolean } = {}): CatalogEntry[] {
+export function allEntries(
+  opts: { includeDeprecated?: boolean; kind?: 'chat' | 'embedding' } = {},
+): CatalogEntry[] {
   const out: CatalogEntry[] = [];
   for (const family of catalog) {
     if (family.deprecated && !opts.includeDeprecated) continue;
+    if (opts.kind && (family.kind ?? 'chat') !== opts.kind) continue;
     for (const size of family.sizes) {
       for (const build of size.builds) {
         out.push(makeEntry(family, size, build));
@@ -405,8 +537,56 @@ export function serverArgsForModel(filename: string): string[] {
   const entry = findEntryByFilename(filename);
   if (!entry) return [];
   const out: string[] = ['--alias', entry.build.hfRepo];
-  if (entry.family.serverArgs?.length) out.push(...entry.family.serverArgs);
+  // Sampler defaults are chat-only — an embedding model has no sampling, so
+  // never inject them even if (somehow) one reaches a chat launch path.
+  if (entry.kind === 'chat' && entry.family.serverArgs?.length) out.push(...entry.family.serverArgs);
   return out;
+}
+
+export interface EmbeddingModelInfo {
+  /** HF repo to report as the model id via `--alias`, when known. */
+  alias?: string;
+  /** Pooling type to pass to `--pooling`. Defaults to `'mean'` for models we
+   *  don't recognise (the most common case and the documented workaround). */
+  pooling: 'mean' | 'cls' | 'last';
+  /** Expected output dimensionality, when known (informational). */
+  embedDim?: number;
+  /** Native context window, when known. */
+  ctxWindow?: number;
+}
+
+/**
+ * Resolve the launch metadata for an embedding model file. Catalog hit →
+ * the curated pooling/dim/alias. Miss → `{ pooling: 'mean' }`, matching the
+ * `--pooling mean` workaround in the issue and the most common pooling type.
+ */
+export function embeddingInfoForModel(filename: string): EmbeddingModelInfo {
+  const entry = findEntryByFilename(filename);
+  if (entry && entry.kind === 'embedding') {
+    return {
+      alias: entry.build.hfRepo,
+      pooling: entry.size.pooling ?? 'mean',
+      embedDim: entry.size.embedDim,
+      ctxWindow: entry.size.ctxWindow,
+    };
+  }
+  return { pooling: 'mean' };
+}
+
+/**
+ * Heuristic: is this model file an embedding model rather than a chat model?
+ * Catalog hit is authoritative (`kind === 'embedding'`); otherwise fall back
+ * to common embedding-model name fragments. Used to keep embedding models out
+ * of chat pickers and route them to `locca embed`.
+ */
+export function isEmbeddingModelName(name: string): boolean {
+  const entry =
+    findEntryByFilename(name.toLowerCase().endsWith('.gguf') ? name : `${name}.gguf`) ??
+    findEntryByFilename(name);
+  if (entry) return entry.kind === 'embedding';
+  return /(?:^|[-_.])(?:embed|embedding|bge|nomic-embed|mxbai|gte|e5|minilm|snowflake-arctic-embed|jina-embed)(?:[-_.]|$)/i.test(
+    name,
+  );
 }
 
 /**
