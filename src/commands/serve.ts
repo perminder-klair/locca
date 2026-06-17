@@ -7,7 +7,15 @@ import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
 import { findFirstMatch, pickModel, scanModels } from '../models.js';
 import { refuseIfPortTaken } from '../preflight.js';
-import { PIDFILE, launchServer, serverStatus, stopServer, waitReady } from '../server.js';
+import { parseDuration, runIdleProxy } from '../proxy.js';
+import {
+  PIDFILE,
+  type ServeOpts,
+  launchServer,
+  serverStatus,
+  stopServer,
+  waitReady,
+} from '../server.js';
 import type { Config, Model } from '../types.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { api } from './api.js';
@@ -26,6 +34,10 @@ interface ServeArgs {
   // detaching — logs stream to stdout, SIGTERM/Ctrl-C stops it cleanly, and
   // locca exits with the server. The right shape for a container's PID 1.
   foreground: boolean;
+  // Raw `--idle-timeout` value (e.g. "15m"). When set, serve runs the
+  // foreground idle-unload proxy instead of a plain launch. Parsed (and
+  // validated) in serve() so an invalid value reports a clear error.
+  idleTimeoutRaw?: string;
 }
 
 function parseServeArgs(rest: string[]): ServeArgs {
@@ -44,6 +56,9 @@ function parseServeArgs(rest: string[]): ServeArgs {
     else if (a.startsWith('--ctx=')) out.ctx = num(a.slice('--ctx='.length));
     else if (a === '--threads') out.threads = num(rest[++i]);
     else if (a.startsWith('--threads=')) out.threads = num(a.slice('--threads='.length));
+    else if (a === '--idle-timeout') out.idleTimeoutRaw = rest[++i];
+    else if (a.startsWith('--idle-timeout='))
+      out.idleTimeoutRaw = a.slice('--idle-timeout='.length);
     else if (!a.startsWith('-') && out.pattern === undefined) out.pattern = a;
   }
   return out;
@@ -105,8 +120,28 @@ export async function serve(rest: string[] = []): Promise<void> {
       }
     : await promptSettings(cfg);
 
+  // --idle-timeout switches serve into the foreground idle-unload proxy. Parse
+  // and validate here so a bad value fails fast with a helpful message.
+  let idleTimeout: number | undefined;
+  if (args.idleTimeoutRaw !== undefined) {
+    const sec = parseDuration(args.idleTimeoutRaw);
+    if (sec === null) {
+      p.log.error(
+        `Invalid --idle-timeout '${args.idleTimeoutRaw}' — use e.g. 30s, 15m, 1h, or a number of seconds.`,
+      );
+      process.exit(1);
+    }
+    idleTimeout = sec;
+  }
+
   await refuseIfPortTaken(port);
-  await launchModel(cfg, model, { port, ctx, threads, foreground: args.foreground });
+  await launchModel(cfg, model, {
+    port,
+    ctx,
+    threads,
+    foreground: args.foreground,
+    idleTimeout,
+  });
 }
 
 // Resolve the model in non-interactive mode. A pattern fuzzy-matches the full
@@ -194,11 +229,12 @@ async function launchModel(
     ctx,
     threads,
     foreground,
-  }: { port: number; ctx: number; threads: number; foreground: boolean },
+    idleTimeout,
+  }: { port: number; ctx: number; threads: number; foreground: boolean; idleTimeout?: number },
 ): Promise<void> {
-  printStartupBanner(model, port, ctx);
-
-  const child = launchServer({
+  // One launch template, reused for a plain launch and for every proxy respawn,
+  // so a reloaded model is byte-identical to the original.
+  const serveOpts: ServeOpts = {
     llamaServer: cfg.llamaServer,
     modelPath: model.path,
     mmprojPath: model.mmprojPath,
@@ -211,6 +247,27 @@ async function launchModel(
     ],
     noMmap: cfg.noMmap,
     parallel: cfg.defaultParallel,
+  };
+
+  // Idle-unload proxy: a foreground supervisor that frees VRAM after the model
+  // sits idle and cold-starts it on the next request. llama-server runs on the
+  // private internal port (proxy binds the user-facing one).
+  if (idleTimeout !== undefined) {
+    await runIdleProxy({
+      serveOpts,
+      publicHost: '0.0.0.0',
+      publicPort: port,
+      internalPort: port + 1,
+      idleSec: idleTimeout,
+      modelId: model.name,
+    });
+    return;
+  }
+
+  printStartupBanner(model, port, ctx);
+
+  const child = launchServer({
+    ...serveOpts,
     // Foreground → inherit stdio and block until the server exits; detached →
     // background the server and return so the api block can print.
     detached: !foreground,

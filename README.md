@@ -106,6 +106,30 @@ stdout, SIGTERM/Ctrl-C stops it cleanly, the PIDFILE is removed, and locca
 exits only when the server does. That's the right shape for a container's
 main process (the default is detached — `locca stop` to stop it).
 
+## Idle VRAM unload (`--idle-timeout`)
+
+`llama-server` keeps the model resident in VRAM for its whole lifetime. Pass
+`--idle-timeout` and `locca serve` instead runs a small foreground reverse-proxy
+that unloads the model after it sits idle, freeing the VRAM, and transparently
+reloads it on the next request:
+
+```
+locca serve qwen3.5-9b --idle-timeout 15m    # free VRAM after 15 min idle
+locca serve qwen3.5-9b --idle-timeout 30s    # also accepts s / h, or bare seconds
+```
+
+The proxy binds your `--port` (default `8080`); `llama-server` runs privately on
+`port + 1` (bound to `127.0.0.1`). The model loads eagerly at start, so the
+first requests are fast. Only real inference resets the idle clock — a
+`/health` or `/v1/models` poll won't keep the model pinned. Like `-f`, it runs
+in the foreground (Ctrl-C / SIGTERM stops it); background it yourself
+(`nohup`/`&`/tmux) on a desktop.
+
+**Caveat:** the first request after an unload pays the weights-load latency
+(roughly 10–30s on large models). The proxy holds the connection open while the
+model reloads, so a client with an aggressive timeout may give up on that first
+cold request.
+
 ## Running in Docker
 
 The repo ships a `Dockerfile` and `docker-compose.yml` that run llama.cpp's

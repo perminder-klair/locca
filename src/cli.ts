@@ -11,6 +11,9 @@ Inference:
                 --port/--ctx/--threads/--yes) it runs non-interactively — no
                 prompts. Add -f/--foreground to supervise it in the foreground
                 (logs to stdout, exits with the server — for Docker / systemd).
+                --idle-timeout <30s|15m|1h> runs a foreground proxy that frees
+                VRAM after the model is idle and reloads it on the next request
+                (first request after unload pays the cold-start latency).
   embed [name]  Start a dedicated embedding server (separate port)
   pi [name]     Launch pi coding agent with a local model
   switch        Stop current server and start a new model with pi
