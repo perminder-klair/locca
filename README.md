@@ -50,12 +50,13 @@ npm link              # symlinks `locca` into your PATH
 locca                          # interactive menu (Pi is default)
 locca pi [model-pattern]       # launch pi against a local server
 locca serve [model] [opts]     # start llama-server (interactive pick, or head-less: `locca serve qwen3.5-9b`)
+locca embed [model]            # start a dedicated embedding server (separate port)
 locca switch                   # picker: installed models + curated catalog
 locca bench                    # run llama-bench against a model
 locca doctor                   # health check: hardware, llama.cpp, server, log, config
 locca optimise                 # ask pi to review the deployment and suggest tweaks
 locca api                      # print OpenAI-compatible connection info
-locca logs                     # tail server log (locca-started servers only)
+locca logs [embed]             # tail server log (chat by default, or the embed server)
 locca download [user/repo]     # pull a GGUF from HuggingFace
 locca search   [query]         # search HuggingFace for GGUF models
 locca delete                   # remove a model directory
