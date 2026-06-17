@@ -3,16 +3,51 @@ import * as p from '@clack/prompts';
 import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
-import { pickModel, scanModels } from '../models.js';
+import { findFirstMatch, pickModel, scanModels } from '../models.js';
 import { refuseIfPortTaken } from '../preflight.js';
 import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
-import type { Model } from '../types.js';
+import type { Config, Model } from '../types.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { api } from './api.js';
 import { startEmbeddingSidecar } from './embed.js';
 
-export async function serve(): Promise<void> {
+// Parsed `locca serve` invocation. A positional pattern (or `--yes`) switches
+// serve into non-interactive mode — no Clack prompts, defaults filled from
+// config, suitable for scripts / CI / a parent process managing locca.
+interface ServeArgs {
+  pattern?: string;
+  port?: number;
+  ctx?: number;
+  threads?: number;
+  yes: boolean;
+}
+
+function parseServeArgs(rest: string[]): ServeArgs {
+  const out: ServeArgs = { yes: false };
+  const num = (s: string | undefined): number | undefined => {
+    const n = parseInt(s ?? '', 10);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    if (a === '--yes' || a === '-y') out.yes = true;
+    else if (a === '--port') out.port = num(rest[++i]);
+    else if (a.startsWith('--port=')) out.port = num(a.slice('--port='.length));
+    else if (a === '--ctx') out.ctx = num(rest[++i]);
+    else if (a.startsWith('--ctx=')) out.ctx = num(a.slice('--ctx='.length));
+    else if (a === '--threads') out.threads = num(rest[++i]);
+    else if (a.startsWith('--threads=')) out.threads = num(a.slice('--threads='.length));
+    else if (!a.startsWith('-') && out.pattern === undefined) out.pattern = a;
+  }
+  return out;
+}
+
+export async function serve(rest: string[] = []): Promise<void> {
   const cfg = loadConfig();
+  const args = parseServeArgs(rest);
+  // A pattern or `--yes` means "don't prompt me" — used by scripts and by a
+  // parent process that wants to bring a specific model up unattended.
+  const nonInteractive = args.pattern !== undefined || args.yes;
 
   // Check who's on the port before requiring llama-server — we may bail
   // with a more informative error.
@@ -48,9 +83,53 @@ export async function serve(): Promise<void> {
     process.exit(1);
   }
 
-  const model = await pickModel(chatModels, 'Pick a model to serve');
+  const model = nonInteractive
+    ? resolveModelNonInteractive(args, models, chatModels)
+    : await pickModel(chatModels, 'Pick a model to serve');
   if (!model) return;
 
+  const { port, ctx, threads } = nonInteractive
+    ? {
+        port: args.port ?? cfg.defaultPort,
+        ctx: args.ctx ?? cfg.defaultCtx,
+        threads: args.threads ?? cfg.defaultThreads,
+      }
+    : await promptSettings(cfg);
+
+  await refuseIfPortTaken(port);
+  await launchModel(cfg, model, { port, ctx, threads });
+}
+
+// Resolve the model in non-interactive mode. A pattern fuzzy-matches the full
+// model list the same way `locca pi <pattern>` does; with no pattern (`--yes`
+// alone) we serve the sole chat model if there's exactly one, else we refuse
+// rather than guess. Exits the process on any unresolvable case.
+function resolveModelNonInteractive(args: ServeArgs, models: Model[], chatModels: Model[]): Model {
+  if (args.pattern !== undefined) {
+    const m = findFirstMatch(models, args.pattern);
+    if (!m) {
+      p.log.error(`No model matching '${args.pattern}' in the models dir.`);
+      p.log.info(`Available: ${chatModels.map((c) => c.name).join(', ')}`);
+      process.exit(1);
+    }
+    if (isEmbeddingModelName(m.name)) {
+      p.log.error(`'${m.name}' is an embedding model — serve it with \`locca embed\`.`);
+      process.exit(1);
+    }
+    return m;
+  }
+  // `--yes` with no pattern: only unambiguous when there's a single chat model.
+  if (chatModels.length === 1) return chatModels[0];
+  p.log.error('Multiple chat models found — pass a model pattern, e.g. `locca serve qwen --yes`.');
+  p.log.info(`Available: ${chatModels.map((c) => c.name).join(', ')}`);
+  process.exit(1);
+}
+
+// The interactive "Default vs Custom" settings prompt. Unchanged behaviour;
+// extracted so the non-interactive path can skip it cleanly.
+async function promptSettings(
+  cfg: Config,
+): Promise<{ port: number; ctx: number; threads: number }> {
   const choice = await p.select({
     message: 'Settings',
     options: [
@@ -90,8 +169,18 @@ export async function serve(): Promise<void> {
     threads = parseInt(threadsIn, 10) || cfg.defaultThreads;
   }
 
-  await refuseIfPortTaken(port);
+  return { port, ctx, threads };
+}
 
+// Launch llama-server for a resolved model and wait for it to come up. Shared
+// by the interactive and non-interactive paths so both produce an identical
+// end state (detached server, api block printed). Server keeps running after
+// locca exits — stop it with `locca stop`, logs via `locca logs`.
+async function launchModel(
+  cfg: Config,
+  model: Model,
+  { port, ctx, threads }: { port: number; ctx: number; threads: number },
+): Promise<void> {
   printStartupBanner(model, port, ctx);
 
   launchServer({
@@ -107,8 +196,6 @@ export async function serve(): Promise<void> {
     ],
     noMmap: cfg.noMmap,
     parallel: cfg.defaultParallel,
-    // Detached: server keeps running after locca exits. Stop it with
-    // `locca stop`. Logs go to the log file (see `locca logs`).
     detached: true,
   });
 

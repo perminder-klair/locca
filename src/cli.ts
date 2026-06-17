@@ -7,7 +7,9 @@ function printHelp(): void {
   console.log(`Usage: locca [command]
 
 Inference:
-  serve         Start API server with a model (detached)
+  serve [name]  Start API server with a model (detached). With a model
+                name (+ optional --port/--ctx/--threads/--yes) it runs
+                non-interactively — no prompts.
   embed [name]  Start a dedicated embedding server (separate port)
   pi [name]     Launch pi coding agent with a local model
   switch        Stop current server and start a new model with pi
@@ -59,7 +61,7 @@ async function dispatch(): Promise<void> {
     case 'serve':
     case 'start': {
       const m = await import('./commands/serve.js');
-      await m.serve();
+      await m.serve(rest);
       return;
     }
     case 'embed':
