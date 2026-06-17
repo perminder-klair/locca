@@ -7,9 +7,10 @@ function printHelp(): void {
   console.log(`Usage: locca [command]
 
 Inference:
-  serve [name]  Start API server with a model (detached). With a model
-                name (+ optional --port/--ctx/--threads/--yes) it runs
-                non-interactively — no prompts.
+  serve [name]  Start API server with a model. With a model name (+ optional
+                --port/--ctx/--threads/--yes) it runs non-interactively — no
+                prompts. Add -f/--foreground to supervise it in the foreground
+                (logs to stdout, exits with the server — for Docker / systemd).
   embed [name]  Start a dedicated embedding server (separate port)
   pi [name]     Launch pi coding agent with a local model
   switch        Stop current server and start a new model with pi
