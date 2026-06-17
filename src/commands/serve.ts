@@ -1,3 +1,5 @@
+import type { ChildProcess } from 'node:child_process';
+import { unlinkSync } from 'node:fs';
 import { basename } from 'node:path';
 import * as p from '@clack/prompts';
 import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
@@ -5,7 +7,7 @@ import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
 import { findFirstMatch, pickModel, scanModels } from '../models.js';
 import { refuseIfPortTaken } from '../preflight.js';
-import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
+import { PIDFILE, launchServer, serverStatus, stopServer, waitReady } from '../server.js';
 import type { Config, Model } from '../types.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { api } from './api.js';
@@ -20,10 +22,14 @@ interface ServeArgs {
   ctx?: number;
   threads?: number;
   yes: boolean;
+  // Foreground: locca supervises llama-server in the foreground instead of
+  // detaching — logs stream to stdout, SIGTERM/Ctrl-C stops it cleanly, and
+  // locca exits with the server. The right shape for a container's PID 1.
+  foreground: boolean;
 }
 
 function parseServeArgs(rest: string[]): ServeArgs {
-  const out: ServeArgs = { yes: false };
+  const out: ServeArgs = { yes: false, foreground: false };
   const num = (s: string | undefined): number | undefined => {
     const n = parseInt(s ?? '', 10);
     return Number.isFinite(n) ? n : undefined;
@@ -31,6 +37,7 @@ function parseServeArgs(rest: string[]): ServeArgs {
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === '--yes' || a === '-y') out.yes = true;
+    else if (a === '--foreground' || a === '-f') out.foreground = true;
     else if (a === '--port') out.port = num(rest[++i]);
     else if (a.startsWith('--port=')) out.port = num(a.slice('--port='.length));
     else if (a === '--ctx') out.ctx = num(rest[++i]);
@@ -46,8 +53,10 @@ export async function serve(rest: string[] = []): Promise<void> {
   const cfg = loadConfig();
   const args = parseServeArgs(rest);
   // A pattern or `--yes` means "don't prompt me" — used by scripts and by a
-  // parent process that wants to bring a specific model up unattended.
-  const nonInteractive = args.pattern !== undefined || args.yes;
+  // parent process that wants to bring a specific model up unattended. No TTY
+  // (a container, a pipe, CI) is treated the same way: we can't prompt, so we
+  // resolve from the pattern / sole chat model instead of hanging on a picker.
+  const nonInteractive = args.pattern !== undefined || args.yes || !process.stdin.isTTY;
 
   // Check who's on the port before requiring llama-server — we may bail
   // with a more informative error.
@@ -97,7 +106,7 @@ export async function serve(rest: string[] = []): Promise<void> {
     : await promptSettings(cfg);
 
   await refuseIfPortTaken(port);
-  await launchModel(cfg, model, { port, ctx, threads });
+  await launchModel(cfg, model, { port, ctx, threads, foreground: args.foreground });
 }
 
 // Resolve the model in non-interactive mode. A pattern fuzzy-matches the full
@@ -172,18 +181,24 @@ async function promptSettings(
   return { port, ctx, threads };
 }
 
-// Launch llama-server for a resolved model and wait for it to come up. Shared
-// by the interactive and non-interactive paths so both produce an identical
-// end state (detached server, api block printed). Server keeps running after
-// locca exits — stop it with `locca stop`, logs via `locca logs`.
+// Launch llama-server for a resolved model. Shared by the interactive and
+// non-interactive paths. Detached (the default) leaves the server running
+// after locca exits — stop it with `locca stop`, logs via `locca logs`, and
+// the api block is printed. Foreground keeps locca attached as the server's
+// supervisor (logs to stdout, exits with it) — a container's main process.
 async function launchModel(
   cfg: Config,
   model: Model,
-  { port, ctx, threads }: { port: number; ctx: number; threads: number },
+  {
+    port,
+    ctx,
+    threads,
+    foreground,
+  }: { port: number; ctx: number; threads: number; foreground: boolean },
 ): Promise<void> {
   printStartupBanner(model, port, ctx);
 
-  launchServer({
+  const child = launchServer({
     llamaServer: cfg.llamaServer,
     modelPath: model.path,
     mmprojPath: model.mmprojPath,
@@ -196,8 +211,15 @@ async function launchModel(
     ],
     noMmap: cfg.noMmap,
     parallel: cfg.defaultParallel,
-    detached: true,
+    // Foreground → inherit stdio and block until the server exits; detached →
+    // background the server and return so the api block can print.
+    detached: !foreground,
   });
+
+  if (foreground) {
+    await superviseForeground(child, port, basename(model.path));
+    return;
+  }
 
   const ready = await waitReady(port, 60);
   if (!ready) {
@@ -219,6 +241,59 @@ async function launchModel(
   await api();
   console.log(`  ${pc.dim('Stop with: locca stop  |  Logs: locca logs')}`);
   console.log();
+}
+
+/**
+ * Foreground supervisor for container / systemd use: forward termination
+ * signals to llama-server, clean up the PIDFILE, and resolve only when the
+ * child exits — so the locca process (and the container) lives exactly as
+ * long as the server does. Server stdout/stderr is already inherited, so its
+ * logs stream straight to ours (i.e. `docker logs`).
+ */
+async function superviseForeground(
+  child: ChildProcess,
+  port: number,
+  modelId: string,
+): Promise<void> {
+  console.log(
+    `  ${pc.green('●')} Serving ${pc.cyan(modelId)} at ${pc.cyan(`http://localhost:${port}/v1`)} ${pc.dim('(bound to 0.0.0.0)')}`,
+  );
+  console.log(`  ${pc.dim('Ctrl-C / SIGTERM to stop — server logs stream below')}`);
+  console.log();
+
+  const forward = (sig: NodeJS.Signals) => {
+    try {
+      child.kill(sig);
+    } catch {
+      // already gone
+    }
+  };
+  process.on('SIGTERM', () => forward('SIGTERM'));
+  process.on('SIGINT', () => forward('SIGINT'));
+
+  await new Promise<void>((resolve) => {
+    child.on('exit', (code, signal) => {
+      cleanupPidfile();
+      // A clean signal stop is success; otherwise propagate the server's exit
+      // code so `docker run` / systemd see the real failure.
+      process.exitCode = signal ? 0 : (code ?? 0);
+      resolve();
+    });
+    child.on('error', (err) => {
+      cleanupPidfile();
+      p.log.error(`Failed to start llama-server: ${err.message}`);
+      process.exitCode = 1;
+      resolve();
+    });
+  });
+}
+
+function cleanupPidfile(): void {
+  try {
+    unlinkSync(PIDFILE);
+  } catch {
+    // never created or already gone
+  }
 }
 
 function printStartupBanner(model: Model, port: number, ctx: number): void {
