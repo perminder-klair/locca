@@ -22,18 +22,55 @@ import { api } from './api.js';
 // bge-m3; mxbai's 512 is honoured as-is.
 const EMBED_CTX_CAP = 8192;
 
+// Parsed `locca embed` invocation. Mirrors `serve`'s flag set (minus the
+// foreground / idle-timeout supervision options, which don't apply to the
+// short-lived embedding encoder). A positional pattern or `--yes` switches
+// embed into non-interactive mode — no Clack picker, suitable for scripts / CI.
+interface EmbedArgs {
+  pattern?: string;
+  port?: number;
+  ctx?: number;
+  threads?: number;
+  yes: boolean;
+}
+
+function parseEmbedArgs(rest: string[]): EmbedArgs {
+  const out: EmbedArgs = { yes: false };
+  const num = (s: string | undefined): number | undefined => {
+    const n = parseInt(s ?? '', 10);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    if (a === '--yes' || a === '-y') out.yes = true;
+    else if (a === '--port') out.port = num(rest[++i]);
+    else if (a.startsWith('--port=')) out.port = num(a.slice('--port='.length));
+    else if (a === '--ctx') out.ctx = num(rest[++i]);
+    else if (a.startsWith('--ctx=')) out.ctx = num(a.slice('--ctx='.length));
+    else if (a === '--threads') out.threads = num(rest[++i]);
+    else if (a.startsWith('--threads=')) out.threads = num(a.slice('--threads='.length));
+    else if (!a.startsWith('-') && out.pattern === undefined) out.pattern = a;
+  }
+  return out;
+}
+
 /**
  * `locca embed [model]` — start a dedicated embedding server on the embed port
  * (default 8090), independent of the chat server. Picks an embedding model
  * (filtered from `modelsDir`), launches llama-server with `--embeddings
  * --pooling <type>`, and prints the OpenAI-compatible connection info.
+ *
+ * A model name, `--yes`, or no TTY runs non-interactively (no picker), and
+ * `--port`/`--ctx`/`--threads` override the config / catalog defaults.
  */
-export async function embed(args: string[]): Promise<void> {
+export async function embed(argv: string[]): Promise<void> {
   const cfg = loadConfig();
-  const port = portForRole(cfg, 'embed');
-
-  // First positional may be a model name pattern (mirrors `locca pi <pattern>`).
-  const pattern = args[0] && !args[0].startsWith('-') ? args[0] : undefined;
+  const args = parseEmbedArgs(argv);
+  // A CLI `--port` wins over `defaultEmbedPort`. Used everywhere below except
+  // the status/stop check, which stays on the config role port (PID-based, so
+  // the swap still works) — exactly how `serve` treats its top-of-function
+  // status check vs `args.port`.
+  const port = args.port ?? portForRole(cfg, 'embed');
 
   // Resolve who's on the embed port before requiring llama-server.
   const status = await serverStatus(cfg, 'embed');
@@ -75,17 +112,18 @@ export async function embed(args: string[]): Promise<void> {
     );
   }
 
-  const model = pattern
-    ? findFirstMatch(pool, pattern)
+  // A pattern, `--yes`, or no TTY (a container, a pipe, CI) means "don't prompt
+  // me" — resolve from the pattern / sole embedding model instead of hanging on
+  // the picker.
+  const nonInteractive = args.pattern !== undefined || args.yes || !process.stdin.isTTY;
+  const model = nonInteractive
+    ? resolveEmbedModelNonInteractive(args, pool)
     : await pickModel(pool, 'Pick an embedding model');
-  if (!model) {
-    if (pattern) p.log.error(`No model matching '${pattern}'`);
-    return;
-  }
+  if (!model) return;
 
   await refuseIfPortTaken(port);
 
-  const ctx = launchEmbed(cfg, model, port);
+  const ctx = launchEmbed(cfg, model, port, { ctx: args.ctx, threads: args.threads });
 
   printStartupBanner(model, port, ctx);
 
@@ -106,15 +144,23 @@ export async function embed(args: string[]): Promise<void> {
  * Launch the embedding server (detached) for `model` on `port`. Shared by the
  * `embed` command and the `serve` sidecar. Returns the ctx it used.
  */
-export function launchEmbed(cfg: Config, model: Model, port: number): number {
+export function launchEmbed(
+  cfg: Config,
+  model: Model,
+  port: number,
+  overrides?: { ctx?: number; threads?: number },
+): number {
   const info = embeddingInfoForModel(basename(model.path));
-  const ctx = Math.min(info.ctxWindow ?? EMBED_CTX_CAP, EMBED_CTX_CAP);
+  // An explicit `--ctx` is honoured verbatim — it's a deliberate choice that
+  // also drives `--ubatch-size`/`--batch-size`. The bare command and the serve
+  // sidecar (no overrides) keep the safe EMBED_CTX_CAP clamp.
+  const ctx = overrides?.ctx ?? Math.min(info.ctxWindow ?? EMBED_CTX_CAP, EMBED_CTX_CAP);
   launchServer({
     llamaServer: cfg.llamaServer,
     modelPath: model.path,
     port,
     ctx,
-    threads: cfg.defaultThreads,
+    threads: overrides?.threads ?? cfg.defaultThreads,
     mode: 'embedding',
     pooling: info.pooling,
     role: 'embed',
@@ -168,6 +214,27 @@ export async function startEmbeddingSidecar(cfg: Config): Promise<string | null>
  *  sidecar must degrade gracefully, not kill the parent `serve`. */
 async function refuseIfPortTakenQuiet(port: number): Promise<boolean> {
   return isPortInUse(port);
+}
+
+// Resolve the embedding model in non-interactive mode. A pattern fuzzy-matches
+// the pool the same way `locca pi <pattern>` does; with no pattern (`--yes` or
+// no TTY) we serve the sole candidate if there's exactly one, else we refuse
+// rather than guess. Exits the process on any unresolvable case.
+function resolveEmbedModelNonInteractive(args: EmbedArgs, pool: Model[]): Model {
+  if (args.pattern !== undefined) {
+    const m = findFirstMatch(pool, args.pattern);
+    if (!m) {
+      p.log.error(`No model matching '${args.pattern}' in the models dir.`);
+      p.log.info(`Available: ${pool.map((c) => c.name).join(', ')}`);
+      process.exit(1);
+    }
+    return m;
+  }
+  // `--yes` / no TTY with no pattern: only unambiguous with a single candidate.
+  if (pool.length === 1) return pool[0];
+  p.log.error('Multiple embedding models found — pass a model pattern, e.g. `locca embed bge --yes`.');
+  p.log.info(`Available: ${pool.map((c) => c.name).join(', ')}`);
+  process.exit(1);
 }
 
 function printStartupBanner(model: Model, port: number, ctx: number): void {
