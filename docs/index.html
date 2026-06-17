@@ -1007,7 +1007,10 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
               dedicated embedding server on its own port, tuned with the
               <code translate="no">--pooling</code> and ubatch flags that
               <code translate="no">/v1/embeddings</code> needs — running side by
-              side with your chat model.
+              side with your chat model. Takes the same head-less
+              <code translate="no">--yes</code> and
+              <code translate="no">--port</code>/<code translate="no">--ctx</code>/<code translate="no">--threads</code>
+              flags as <code translate="no">serve</code>.
             </p>
           </div>
         </div>
@@ -1100,7 +1103,7 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
         <ul class="cmd-grid">
           <li class="cmd-row"><code translate="no">locca pi</code><span>Launch the pi coding agent against your local server.</span></li>
           <li class="cmd-row"><code translate="no">locca serve</code><span>Start <code translate="no" style="font-family:var(--mono)">llama-server</code> with a model — detached, head-less <code translate="no" style="font-family:var(--mono)">--yes</code>, foreground <code translate="no" style="font-family:var(--mono)">-f</code>, or <code translate="no" style="font-family:var(--mono)">--idle-timeout</code> to free VRAM when idle.</span></li>
-          <li class="cmd-row"><code translate="no">locca embed</code><span>Start a dedicated embedding server on its own port.</span></li>
+          <li class="cmd-row"><code translate="no">locca embed</code><span>Start a dedicated embedding server on its own port — head-less <code translate="no" style="font-family:var(--mono)">--yes</code> and <code translate="no" style="font-family:var(--mono)">--port</code>/<code translate="no" style="font-family:var(--mono)">--ctx</code>/<code translate="no" style="font-family:var(--mono)">--threads</code> overrides, like <code translate="no" style="font-family:var(--mono)">serve</code>.</span></li>
           <li class="cmd-row"><code translate="no">locca switch</code><span>Catalog-aware picker — installed models + curated catalog with fit hints.</span></li>
           <li class="cmd-row"><code translate="no">locca bench</code><span>Run llama-bench with a friendlier summary.</span></li>
           <li class="cmd-row"><code translate="no">locca doctor</code><span>Health check — hardware, server, log warnings, config sanity.</span></li>

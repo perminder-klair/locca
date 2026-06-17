@@ -14,7 +14,8 @@ Inference:
                 --idle-timeout <30s|15m|1h> runs a foreground proxy that frees
                 VRAM after the model is idle and reloads it on the next request
                 (first request after unload pays the cold-start latency).
-  embed [name]  Start a dedicated embedding server (separate port)
+  embed [name]  Start a dedicated embedding server (separate port). With a name
+                (+ optional --port/--ctx/--threads/--yes) it runs non-interactively.
   pi [name]     Launch pi coding agent with a local model
   switch        Stop current server and start a new model with pi
   stop          Stop running server(s)
