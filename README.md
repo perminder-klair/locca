@@ -130,6 +130,31 @@ in the foreground (Ctrl-C / SIGTERM stops it); background it yourself
 model reloads, so a client with an aggressive timeout may give up on that first
 cold request.
 
+## Embeddings
+
+`locca embed [model]` runs a **dedicated embedding server** on its own port
+(`defaultEmbedPort`, default `8090`), separate from the chat server so the two
+run side by side. Embedding models are auto-detected — by catalog entry, or
+names like `nomic-embed`, `bge`, `mxbai`, `e5`, `gte` — kept out of the `serve`
+picker and offered here instead. It launches `llama-server --embeddings
+--pooling <type>` (pooling is read from the catalog) and prints the
+OpenAI-compatible `/v1/embeddings` connection block.
+
+Like `serve`, it's head-less-friendly — a model name, `--yes`, or no TTY skips
+the picker, and `--port` / `--ctx` / `--threads` override the defaults:
+
+```
+locca embed nomic                            # match by name, detached
+locca embed nomic --port 8099 --ctx 4096     # explicit port + context
+locca embed --yes                            # no prompt: serve the sole embedding model
+```
+
+To run an embedding model **automatically alongside chat**, set
+`defaultEmbedModel` (a name pattern) in your config: `locca serve` then brings up
+the embedding sidecar on `defaultEmbedPort` after the chat server (best-effort —
+a sidecar failure never takes down chat), and `locca stop` stops both.
+`locca logs embed` tails the embedding server's log.
+
 ## Running in Docker
 
 The repo ships a `Dockerfile` and `docker-compose.yml` that run llama.cpp's
@@ -265,6 +290,7 @@ by hand, or re-run the wizard:
   "piContextFiles": false,
   "vramBudgetMB": 16384,
   "defaultParallel": 1,
+  "defaultEmbedPort": 8090,
   "noMmap": false
 }
 ```
@@ -322,6 +348,12 @@ improved stability** with mmap disabled. Not auto-detected on purpose:
 Strix Halo surfaces under several driver names
 (`Radeon 8050S/8060S`, `Radeon Graphics`, `RADV STRIX_HALO`), so a wrong
 guess would silently degrade.
+
+`defaultEmbedPort` (default `8090`) is the port for the dedicated embedding
+server — kept distinct from `defaultPort` so chat and embeddings run as two
+separate `llama-server` processes side by side. `defaultEmbedModel` is unset by
+default; set it to a model-name pattern and `locca serve` auto-starts that
+embedding model as a sidecar (see [Embeddings](#embeddings)).
 
 locca probes `defaultPort` at startup. If something already responds to
 `/health` (a llama-server you started by hand or via a supervisor),
