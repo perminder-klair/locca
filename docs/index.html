@@ -977,6 +977,39 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
               <span style="color:var(--teal)">attached</span>, and uses it instead of spawning a duplicate.
             </p>
           </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⏏</div>
+            <h3>Free VRAM when idle</h3>
+            <p>
+              <code translate="no">locca serve qwen --idle-timeout 15m</code> runs a
+              small proxy that drops the model after it sits unused, freeing the
+              VRAM, then reloads it on the next request. Only real inference
+              resets the clock — a <code translate="no">/health</code> poll won't
+              keep it pinned.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⧉</div>
+            <h3>Headless &amp; container-ready</h3>
+            <p>
+              Name a model and <code translate="no">locca serve qwen3.5-9b --yes</code>
+              runs with no prompts. <code translate="no">-f</code> supervises it in
+              the foreground so it can be a container's PID 1 or a systemd unit —
+              the repo ships a <code translate="no">Dockerfile</code>, and
+              <code translate="no">LOCCA_MODELS_DIR</code> points it at a mounted volume.
+            </p>
+          </div>
+          <div class="feature">
+            <div class="glyph" aria-hidden="true">⇶</div>
+            <h3>Embeddings, too</h3>
+            <p>
+              <code translate="no">locca embed nomic-embed</code> brings up a
+              dedicated embedding server on its own port, tuned with the
+              <code translate="no">--pooling</code> and ubatch flags that
+              <code translate="no">/v1/embeddings</code> needs — running side by
+              side with your chat model.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -1066,7 +1099,8 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
 
         <ul class="cmd-grid">
           <li class="cmd-row"><code translate="no">locca pi</code><span>Launch the pi coding agent against your local server.</span></li>
-          <li class="cmd-row"><code translate="no">locca serve</code><span>Start <code translate="no" style="font-family:var(--mono)">llama-server</code> with a picked model, detached.</span></li>
+          <li class="cmd-row"><code translate="no">locca serve</code><span>Start <code translate="no" style="font-family:var(--mono)">llama-server</code> with a model — detached, head-less <code translate="no" style="font-family:var(--mono)">--yes</code>, foreground <code translate="no" style="font-family:var(--mono)">-f</code>, or <code translate="no" style="font-family:var(--mono)">--idle-timeout</code> to free VRAM when idle.</span></li>
+          <li class="cmd-row"><code translate="no">locca embed</code><span>Start a dedicated embedding server on its own port.</span></li>
           <li class="cmd-row"><code translate="no">locca switch</code><span>Catalog-aware picker — installed models + curated catalog with fit hints.</span></li>
           <li class="cmd-row"><code translate="no">locca bench</code><span>Run llama-bench with a friendlier summary.</span></li>
           <li class="cmd-row"><code translate="no">locca doctor</code><span>Health check — hardware, server, log warnings, config sanity.</span></li>
