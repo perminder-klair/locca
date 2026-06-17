@@ -49,7 +49,7 @@ npm link              # symlinks `locca` into your PATH
 ```
 locca                          # interactive menu (Pi is default)
 locca pi [model-pattern]       # launch pi against a local server
-locca serve [model] [opts]     # start llama-server (interactive pick, or head-less: `locca serve qwen3.5-9b`)
+locca serve [model] [opts]     # start llama-server — interactive, head-less, -f foreground, or --idle-timeout
 locca embed [model]            # start a dedicated embedding server (separate port)
 locca switch                   # picker: installed models + curated catalog
 locca bench                    # run llama-bench against a model
