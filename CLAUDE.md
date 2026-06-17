@@ -33,6 +33,8 @@ Every command that needs an LLM calls `serverStatus(cfg)`, which classifies the 
 
 `waitReady()` polls `/health`, **not** `/v1/models` — `/health` flips green when the HTTP listener binds, while `/v1/models` only answers post-weights-load. On big models that's a 10–30s gap that previously caused spurious timeouts.
 
+`launchServer()` returns the `ChildProcess` and runs in one of two modes. **Detached** (the default for `serve`/`embed`): stdio to the logfile, `child.unref()`, PIDFILE written, locca exits leaving the server up. **Foreground** (`detached: false` → `stdio: 'inherit'`): locca stays attached. `serve -f` is the only foreground caller — `superviseForeground()` (`src/commands/serve.ts`) forwards SIGTERM/SIGINT to the child, removes the PIDFILE, and exits with the server's exit code, which is the shape a container's PID 1 / a systemd unit needs. `serve` also treats **no TTY** as non-interactive (resolve the named or sole chat model, never block on the Clack picker) so it can't hang head-less.
+
 ### Model discovery & context tuning — `src/models.ts`
 
 `scanModels()` walks `cfg.modelsDir` recursively, skipping `mmproj*.gguf` (vision adapters, attached to their parent model) and `ggml-vocab-*.gguf` (llama.cpp tokenizer fixtures, no weights).
@@ -47,7 +49,7 @@ The `pi` command branches on two states: attached server (use the model it repor
 
 ### Config — `src/config.ts`
 
-`~/.locca/config.json`. Written with `mode 0o600`. `loadConfig()` merges over `defaults()` so older configs missing newer keys keep working without migration.
+`~/.locca/config.json`. Written with `mode 0o600`. `loadConfig()` merges over `defaults()` so older configs missing newer keys keep working without migration. After the merge, `LOCCA_MODELS_DIR` (if set) overrides `modelsDir` — the escape hatch for containers / environments with no config file to edit (the Docker image sets it to `/models`).
 
 ### Distro detection — `src/distro.ts`
 
