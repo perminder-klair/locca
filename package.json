@@ -26,7 +26,7 @@
     "lint:fix": "biome check --write",
     "format": "biome format --write",
     "pretest": "npm run build",
-    "test": "node --test 'test/unit/*.test.js'",
+    "test": "node --test test/unit/*.test.js",
     "prepublishOnly": "npm run build",
     "release": "npm publish --access=public"
   },
