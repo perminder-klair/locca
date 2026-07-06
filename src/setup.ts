@@ -146,12 +146,12 @@ export async function runSetup(): Promise<void> {
   // Context-files is exposed because AGENTS.md / CLAUDE.md can be huge and
   // blow out a small local model's context window.
   p.note(
-    "Skills load lazily: /skill:<name> still works, but their descriptions are\nstripped from the system prompt to save context on smaller models.\nExtensions are enabled. Change either later with `locca config`.",
+    'Skills load lazily: /skill:<name> still works, but their descriptions are\nstripped from the system prompt to save context on smaller models.\nExtensions are enabled. Change either later with `locca config`.',
     'Pi skills & extensions',
   );
 
   p.note(
-    "Pi can load AGENTS.md / CLAUDE.md from your project as system context.\nLeaving this off saves tokens on smaller models — recommended unless you\nhave a big context window. Change later with `locca config`.",
+    'Pi can load AGENTS.md / CLAUDE.md from your project as system context.\nLeaving this off saves tokens on smaller models — recommended unless you\nhave a big context window. Change later with `locca config`.',
     'Pi context files',
   );
   const piContextFiles = await p.confirm({
@@ -205,7 +205,9 @@ export async function runSetup(): Promise<void> {
       await tryInstallPi();
     } else if (choice === 'manual') {
       p.log.message(renderPiInstallHint());
-      p.log.message(pc.dim('Setup will continue. Re-run `locca setup` later if you change your mind.'));
+      p.log.message(
+        pc.dim('Setup will continue. Re-run `locca setup` later if you change your mind.'),
+      );
     }
   }
 
@@ -372,4 +374,3 @@ function pickBuildsForFirstRunMenu(budget: ReturnType<typeof memoryBudget>): Fir
   });
   return rows;
 }
-

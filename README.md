@@ -44,13 +44,17 @@ npm run build
 npm link              # symlinks `locca` into your PATH
 ```
 
+For development: `npm test` (builds, then runs the `node:test` suite in
+`test/unit/`) and `npm run lint` (Biome). CI runs both on every push/PR.
+
 ## Commands
 
 ```
 locca                          # interactive menu (Pi is default)
 locca pi [model-pattern]       # launch pi against a local server
 locca serve [model] [opts]     # start llama-server — interactive, head-less, -f foreground, or --idle-timeout
-locca embed [model] [opts]     # dedicated embedding server (separate port); --port/--ctx/--threads/--yes
+                               #   opts: --port/--ctx/--threads/--host/--api-key/--yes
+locca embed [model] [opts]     # dedicated embedding server (separate port); same opts as serve
 locca switch                   # picker: installed models + curated catalog
 locca bench                    # run llama-bench against a model
 locca doctor                   # health check: hardware, llama.cpp, server, log, config
@@ -65,6 +69,7 @@ locca config                   # view / edit ~/.locca/config.json
 locca setup                    # re-run the setup wizard
 locca install-llama            # download a prebuilt llama.cpp binary into ~/.locca/bin
 locca help                     # full command listing
+locca --version                # print the installed version
 ```
 
 `locca pi qwen` fuzzy-matches the first `*qwen*.gguf` in your models dir.
@@ -95,7 +100,13 @@ Docker, systemd, or CI:
 locca serve qwen3.5-9b                       # config defaults, detached
 locca serve qwen3.5-9b --port 8080 --ctx 16384   # explicit port + context
 locca serve qwen3.5-9b -f                     # foreground: streams logs, stays up until killed
+locca serve qwen3.5-9b --host 127.0.0.1       # loopback only (default binds 0.0.0.0)
+locca serve qwen3.5-9b --api-key s3cret       # require Authorization: Bearer s3cret
 ```
+
+Flag values are validated strictly — `--ctx abc` or a typo'd flag exits with
+an error instead of silently falling back to config defaults. `defaultHost`
+in the config sets the bind host permanently (per-run `--host` wins).
 
 With no TTY (a container, a pipe, CI) `serve` never blocks on the picker: it
 resolves the named model, or — with none named — the sole chat model if
@@ -155,6 +166,22 @@ the embedding sidecar on `defaultEmbedPort` after the chat server (best-effort �
 a sidecar failure never takes down chat), and `locca stop` stops both.
 `locca logs embed` tails the embedding server's log.
 
+## Downloads
+
+`locca download` (and the catalog picker) pulls GGUFs safely:
+
+- **Atomic** — bytes stream into `<file>.gguf.part` and only rename to
+  `.gguf` when complete, so a killed download never leaves a truncated
+  model for `serve` to trip over.
+- **Resumable** — a leftover `.part` resumes from where it stopped
+  (`Range` request). Network errors during a download retry automatically
+  with backoff, resuming each time.
+- **Verified** — when HuggingFace publishes a sha256 for the file (LFS),
+  the finished download is checked against it before being published.
+- **Gated repos** — set `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) and it's
+  sent on every HuggingFace request, so Llama/Gemma-style gated repos work
+  once you've accepted the license on the site.
+
 ## Running in Docker
 
 The repo ships a `Dockerfile` and `docker-compose.yml` that run llama.cpp's
@@ -190,7 +217,8 @@ Point any OpenAI-compatible client at `http://<host>:8080/v1` (no API key).
 
 | Flag | Purpose |
 |---|---|
-| `--host 0.0.0.0` (`serve`) / `127.0.0.1` (`pi`) | LAN access vs loopback only |
+| `--host 0.0.0.0` (`serve`) / `127.0.0.1` (`pi`) | LAN access vs loopback only — override per-run with `--host` or permanently with `defaultHost` in config |
+| `--api-key <key>` | Off by default (any key accepted) — pass `--api-key` to `serve`/`embed` to require it |
 | `--n-gpu-layers 999` | All layers on GPU |
 | `--flash-attn on` | Flash attention |
 | `--cache-type-k q8_0 --cache-type-v q8_0` | Quantized KV cache (4× smaller than f16) |
@@ -300,7 +328,11 @@ The interactive editor shows preset pickers for `defaultCtx`,
 
 `LOCCA_MODELS_DIR` overrides `modelsDir` at load time — for containers and
 other environments where there's no config file to edit (it's how the Docker
-image points at a bind-mounted `/models` volume).
+image points at a bind-mounted `/models` volume). The override is never
+written back to `config.json`.
+
+`defaultHost` (optional) sets the bind host for `serve`/`embed` — unset
+means `0.0.0.0` (LAN-visible); set `127.0.0.1` to keep servers local-only.
 
 If your binaries aren't on `$PATH`, point them at absolute paths:
 

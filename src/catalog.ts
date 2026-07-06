@@ -121,16 +121,7 @@ const QWEN_SAMPLER = [
 // Gemma 4 — Google's published defaults.
 // temp 1.0, top-k 64, top-p 0.95. min-p left at 0 (no minimum).
 // repeat-penalty deliberately not set: Gemma's training is sensitive to it.
-const GEMMA_SAMPLER = [
-  '--temp',
-  '1.0',
-  '--top-k',
-  '64',
-  '--top-p',
-  '0.95',
-  '--min-p',
-  '0.0',
-];
+const GEMMA_SAMPLER = ['--temp', '1.0', '--top-k', '64', '--top-p', '0.95', '--min-p', '0.0'];
 
 export const catalog: CatalogFamily[] = [
   {
@@ -539,7 +530,8 @@ export function serverArgsForModel(filename: string): string[] {
   const out: string[] = ['--alias', entry.build.hfRepo];
   // Sampler defaults are chat-only — an embedding model has no sampling, so
   // never inject them even if (somehow) one reaches a chat launch path.
-  if (entry.kind === 'chat' && entry.family.serverArgs?.length) out.push(...entry.family.serverArgs);
+  if (entry.kind === 'chat' && entry.family.serverArgs?.length)
+    out.push(...entry.family.serverArgs);
   return out;
 }
 

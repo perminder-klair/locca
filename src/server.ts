@@ -200,22 +200,37 @@ export async function serverStatus(cfg: Config, role: ServerRole = 'chat'): Prom
     }
     if (Number.isFinite(pid) && isAlive(pid)) {
       const args = readArgs(pid);
-      const portMatch = args.match(/--port\s+(\d+)/);
-      const modelMatch = args.match(/--model\s+(\S+\.gguf)/);
-      const port = portMatch ? parseInt(portMatch[1]!, 10) : rolePort;
-      return {
-        running: true,
-        source: 'pid',
-        url: `http://127.0.0.1:${port}`,
-        port,
-        pid,
-        model: modelMatch ? basename(modelMatch[1]!) : undefined,
-      };
-    }
-    try {
-      unlinkSync(pf);
-    } catch {
-      // ignore
+      // PID-reuse guard: a stale pidfile can point at a recycled PID owned by
+      // some unrelated process, and stopServer() would SIGTERM it. Only claim
+      // the process when its argv visibly is our llama-server. Empty ps output
+      // (transient failure) keeps the old trusting behaviour.
+      if (args && !looksLikeLlamaArgs(args, cfg.llamaServer)) {
+        try {
+          unlinkSync(pf);
+        } catch {
+          // ignore
+        }
+      } else {
+        const portMatch = args.match(/--port\s+(\d+)/);
+        // Lazy match up to the first `.gguf` so paths containing spaces still
+        // parse (ps gives us one flat string, so \S+ would stop at the space).
+        const modelMatch = args.match(/--model\s+(.+?\.gguf)/);
+        const port = portMatch ? parseInt(portMatch[1]!, 10) : rolePort;
+        return {
+          running: true,
+          source: 'pid',
+          url: `http://127.0.0.1:${port}`,
+          port,
+          pid,
+          model: modelMatch ? basename(modelMatch[1]!) : undefined,
+        };
+      }
+    } else {
+      try {
+        unlinkSync(pf);
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -241,6 +256,47 @@ function readArgs(pid: number): string {
     encoding: 'utf8',
   });
   return r.stdout?.trim() ?? '';
+}
+
+/**
+ * Does this ps argv plausibly belong to the llama-server we launched?
+ * Matches the configured binary (name or absolute path) or the generic
+ * `llama-server` name, so a config pointing at e.g. `~/.locca/bin/.../
+ * llama-server` still matches after PATH resolution.
+ */
+function looksLikeLlamaArgs(args: string, llamaServer: string): boolean {
+  const bin = basename(llamaServer);
+  return args.includes(bin) || args.includes('llama-server');
+}
+
+/**
+ * Poll until nothing is listening on `port`. Used between stopping an old
+ * server and launching its replacement — SIGTERM on a large model can take
+ * well over the old fixed 500ms sleep to actually release the socket, which
+ * made back-to-back model switches fail to bind intermittently.
+ */
+export async function waitForPortFree(port: number, timeoutMs = 10000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!(await isPortInUse(port))) return true;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return false;
+}
+
+/**
+ * Last `lines` lines of a role's logfile, for inlining into launch-failure
+ * messages so the user doesn't have to go run `locca logs` to learn that the
+ * model file was bad. Null when the log doesn't exist / can't be read.
+ */
+export function tailLog(role: ServerRole = 'chat', lines = 12): string | null {
+  try {
+    const txt = readFileSync(logFile(role), 'utf8').trimEnd();
+    if (!txt) return null;
+    return txt.split('\n').slice(-lines).join('\n');
+  } catch {
+    return null;
+  }
 }
 
 function basename(p: string): string {
@@ -343,7 +399,9 @@ export function buildServerArgs(opts: ServeOpts): string[] {
   if (opts.mode === 'embedding') return buildEmbedArgs(opts);
   // Slot count: honour opts.parallel, but guard against bad/zero values.
   const parallel =
-    Number.isInteger(opts.parallel) && (opts.parallel as number) > 0 ? (opts.parallel as number) : 1;
+    Number.isInteger(opts.parallel) && (opts.parallel as number) > 0
+      ? (opts.parallel as number)
+      : 1;
   const args = [
     '--model',
     opts.modelPath,
@@ -430,11 +488,16 @@ export function launchServer(opts: ServeOpts): ChildProcess {
  * listener binds, which on big models is 10–30s before weights finish
  * loading. /v1/models only answers post-load, which made waitReady time out
  * spuriously. /health is the canonical HTTP liveness probe.
+ *
+ * Pass the spawned `pid` to fail fast when llama-server dies during startup
+ * (bad GGUF, OOM at load) — otherwise a crashed launch still burns the whole
+ * timeout before the caller learns anything.
  */
-export async function waitReady(port: number, timeoutSec = 60): Promise<boolean> {
+export async function waitReady(port: number, timeoutSec = 60, pid?: number): Promise<boolean> {
   const url = `http://127.0.0.1:${port}/health`;
   const deadline = Date.now() + timeoutSec * 1000;
   while (Date.now() < deadline) {
+    if (pid !== undefined && !isAlive(pid)) return false;
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(1500) });
       if (r.ok) return true;

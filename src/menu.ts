@@ -40,14 +40,7 @@ type Action =
   | 'settings'
   | 'quit';
 
-type SettingsAction =
-  | 'doctor'
-  | 'optimise'
-  | 'bench'
-  | 'logs'
-  | 'install'
-  | 'config'
-  | 'back';
+type SettingsAction = 'doctor' | 'optimise' | 'bench' | 'logs' | 'install' | 'config' | 'back';
 
 export async function menu(): Promise<void> {
   let firstRender = true;

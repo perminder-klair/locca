@@ -3,7 +3,12 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CONFIG_FILE, loadConfig } from './config.js';
 import { ggufHasMtpHead } from './gguf.js';
-import { type HardwareInfo, llamaSupportsMtp, probeHardware, readLlamaVersion } from './hardware.js';
+import {
+  type HardwareInfo,
+  llamaSupportsMtp,
+  probeHardware,
+  readLlamaVersion,
+} from './hardware.js';
 import { ctxCapForBudget, scanModels } from './models.js';
 import { PI_PROVIDER_KEY, piModelsJsonPath } from './pi-config.js';
 import { LOGFILE, type ServerStatus, serverStatus } from './server.js';

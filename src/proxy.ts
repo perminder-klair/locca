@@ -324,7 +324,7 @@ export async function runIdleProxy(opts: IdleProxyOpts): Promise<void> {
     fatal(`model failed to load: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  ready(publicPort, idleSec);
+  ready(publicPort, idleSec, publicHost);
 
   const tick = Math.max(1000, Math.min(5000, Math.floor(idleMs / 4)));
   const reaper = setInterval(() => {
@@ -367,10 +367,24 @@ export async function runIdleProxy(opts: IdleProxyOpts): Promise<void> {
   });
 }
 
+// Bodies are buffered in full so they survive a cold-start wait — cap them so
+// a runaway client can't balloon the proxy's memory. 256 MB is far beyond any
+// real inference payload.
+const MAX_BODY_BYTES = 256 * 1024 * 1024;
+
 function readBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
+    let size = 0;
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error(`request body exceeds ${MAX_BODY_BYTES} bytes`));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
@@ -411,10 +425,10 @@ function banner(opts: IdleProxyOpts): void {
   console.log();
 }
 
-function ready(port: number, idleSec: number): void {
+function ready(port: number, idleSec: number, host: string): void {
   console.log();
   console.log(
-    `  ${pc.green('●')} Serving at ${pc.cyan(`http://localhost:${port}/v1`)} ${pc.dim('(bound to 0.0.0.0)')}`,
+    `  ${pc.green('●')} Serving at ${pc.cyan(`http://localhost:${port}/v1`)} ${pc.dim(`(bound to ${host})`)}`,
   );
   console.log(
     `  ${pc.dim(`Model unloads after ${fmtDuration(idleSec)} idle; first request after that reloads it (cold-start latency).`)}`,

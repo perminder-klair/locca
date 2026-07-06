@@ -1,6 +1,15 @@
 export interface Config {
   modelsDir: string;
   defaultPort: number;
+  /**
+   * Bind host for `locca serve` / `locca embed`. Default `0.0.0.0` — the
+   * server (and the idle-unload proxy) is reachable from the LAN, which is
+   * what `locca api`'s "also reachable at" URLs assume. Set `127.0.0.1` to
+   * keep it local-only; per-run `--host` overrides this. Note llama-server
+   * has no auth by default — pass `--api-key` when exposing beyond localhost.
+   * (`locca pi` always binds 127.0.0.1 regardless.)
+   */
+  defaultHost?: string;
   defaultCtx: number;
   defaultThreads: number;
   llamaServer: string;

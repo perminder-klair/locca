@@ -71,10 +71,7 @@ async function ensureServer(cfg: Config, report: DoctorReport): Promise<ServerIn
       `No models in ${cfg.modelsDir}. Run \`locca download\` or \`locca search\` to fetch one.`,
     );
   }
-  const ordered = [
-    ...models.filter((m) => m.sizeGB <= 9),
-    ...models.filter((m) => m.sizeGB > 9),
-  ];
+  const ordered = [...models.filter((m) => m.sizeGB <= 9), ...models.filter((m) => m.sizeGB > 9)];
   const model = await pickModel(ordered, 'Pick a model to run optimise against');
   if (!model) throw new Error('No model selected.');
 

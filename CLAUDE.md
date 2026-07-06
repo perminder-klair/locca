@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` — `tsc --watch`.
 - `npm start` — runs `node bin/locca` (uses whatever's already in `dist/`).
 - `npm link` — install the CLI globally from a checkout for end-to-end testing.
-- No test runner, no linter, no formatter is configured. `tsconfig.json` runs `strict: true`.
+- `npm test` — builds, then runs `node:test` unit tests in `test/unit/*.test.js`. Tests import from `dist/`, so they exercise the compiled output (no ts-node/tsx dependency).
+- `npm run lint` / `npm run lint:fix` — Biome (config in `biome.json`). CI (`.github/workflows/ci.yml`) runs lint + test on push/PR, so run both before committing.
+- `tsconfig.json` runs `strict: true`.
 
 ## Architecture
 
@@ -49,7 +51,11 @@ The `pi` command branches on two states: attached server (use the model it repor
 
 ### Config — `src/config.ts`
 
-`~/.locca/config.json`. Written with `mode 0o600`. `loadConfig()` merges over `defaults()` so older configs missing newer keys keep working without migration. After the merge, `LOCCA_MODELS_DIR` (if set) overrides `modelsDir` — the escape hatch for containers / environments with no config file to edit (the Docker image sets it to `/models`).
+`~/.locca/config.json`. Written with `mode 0o600`. `loadConfig()` merges over `defaults()` so older configs missing newer keys keep working without migration. After the merge, `LOCCA_MODELS_DIR` (if set) overrides `modelsDir` — the escape hatch for containers / environments with no config file to edit (the Docker image sets it to `/models`). `saveConfig()` merges over the *raw file contents* (`readConfigFile()`), never over `loadConfig()` — merging over the resolved view would persist that env override into config.json.
+
+### Downloads — `src/hf.ts`
+
+`downloadFile()` streams into `<dest>.part` and renames on success — an interrupted download never leaves a truncated `.gguf` for `scanModels()` to find. A leftover `.part` is resumed with a `Range` request (a 200 instead of a 206 means the Range was ignored → restart from 0). Received bytes are verified against the advertised total before the rename. `HF_TOKEN` / `HUGGING_FACE_HUB_TOKEN` (if set) are sent on every HF request for gated repos. File paths are encoded per-segment (`encodeHfPath`) so subfoldered GGUFs resolve.
 
 ### Distro detection — `src/distro.ts`
 

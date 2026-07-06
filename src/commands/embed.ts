@@ -3,18 +3,22 @@ import * as p from '@clack/prompts';
 import { embeddingInfoForModel, isEmbeddingModelName } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
-import { findFirstMatch, pickModel, scanModels } from '../models.js';
+import { type CommonServeFlags, parseCommonServeFlags } from '../flags.js';
+import { findFirstMatch, findMatches, pickModel, scanModels } from '../models.js';
 import { refuseIfPortTaken } from '../preflight.js';
 import {
+  isAlive,
   isPortInUse,
   launchServer,
   portForRole,
   serverStatus,
   stopServer,
+  tailLog,
+  waitForPortFree,
   waitReady,
 } from '../server.js';
 import type { Config, Model } from '../types.js';
-import { exitIfCancelled, pc } from '../ui.js';
+import { pc } from '../ui.js';
 import { api } from './api.js';
 
 // Embedding encoders have small native windows; cap the ctx (and therefore the
@@ -26,32 +30,10 @@ const EMBED_CTX_CAP = 8192;
 // foreground / idle-timeout supervision options, which don't apply to the
 // short-lived embedding encoder). A positional pattern or `--yes` switches
 // embed into non-interactive mode — no Clack picker, suitable for scripts / CI.
-interface EmbedArgs {
-  pattern?: string;
-  port?: number;
-  ctx?: number;
-  threads?: number;
-  yes: boolean;
-}
+type EmbedArgs = CommonServeFlags;
 
 function parseEmbedArgs(rest: string[]): EmbedArgs {
-  const out: EmbedArgs = { yes: false };
-  const num = (s: string | undefined): number | undefined => {
-    const n = parseInt(s ?? '', 10);
-    return Number.isFinite(n) ? n : undefined;
-  };
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i];
-    if (a === '--yes' || a === '-y') out.yes = true;
-    else if (a === '--port') out.port = num(rest[++i]);
-    else if (a.startsWith('--port=')) out.port = num(a.slice('--port='.length));
-    else if (a === '--ctx') out.ctx = num(rest[++i]);
-    else if (a.startsWith('--ctx=')) out.ctx = num(a.slice('--ctx='.length));
-    else if (a === '--threads') out.threads = num(rest[++i]);
-    else if (a.startsWith('--threads=')) out.threads = num(a.slice('--threads='.length));
-    else if (!a.startsWith('-') && out.pattern === undefined) out.pattern = a;
-  }
-  return out;
+  return parseCommonServeFlags(rest);
 }
 
 /**
@@ -83,7 +65,12 @@ export async function embed(argv: string[]): Promise<void> {
     }
     p.log.info(`Stopping current embedding server (pid ${status.pid}) to start a new one...`);
     await stopServer(cfg, 'embed');
-    await new Promise((r) => setTimeout(r, 500));
+    if (!(await waitForPortFree(status.port))) {
+      p.log.error(
+        `Old embedding server did not release port ${status.port} within 10s — try again.`,
+      );
+      process.exit(1);
+    }
   }
 
   if (port === cfg.defaultPort) {
@@ -123,12 +110,25 @@ export async function embed(argv: string[]): Promise<void> {
 
   await refuseIfPortTaken(port);
 
-  const ctx = launchEmbed(cfg, model, port, { ctx: args.ctx, threads: args.threads });
+  const { ctx, pid } = launchEmbed(cfg, model, port, {
+    ctx: args.ctx,
+    threads: args.threads,
+    host: args.host ?? cfg.defaultHost,
+    apiKey: args.apiKey,
+  });
 
   printStartupBanner(model, port, ctx);
 
-  const ready = await waitReady(port, 60);
+  const ready = await waitReady(port, 60, pid);
   if (!ready) {
+    if (pid !== undefined && !isAlive(pid)) {
+      p.log.error('Embedding server exited during startup.');
+      const tail = tailLog('embed');
+      if (tail) p.log.message(pc.dim(tail));
+      p.log.info('Full log: locca logs embed');
+      await stopServer(cfg, 'embed'); // clears the pidfile
+      process.exit(1);
+    }
     p.log.warn(
       'Embedding server did not become ready within 60s — run `locca logs embed` to see output.',
     );
@@ -142,33 +142,38 @@ export async function embed(argv: string[]): Promise<void> {
 
 /**
  * Launch the embedding server (detached) for `model` on `port`. Shared by the
- * `embed` command and the `serve` sidecar. Returns the ctx it used.
+ * `embed` command and the `serve` sidecar. Returns the ctx it used and the
+ * child pid (for fail-fast readiness checks).
  */
 export function launchEmbed(
   cfg: Config,
   model: Model,
   port: number,
-  overrides?: { ctx?: number; threads?: number },
-): number {
+  overrides?: { ctx?: number; threads?: number; host?: string; apiKey?: string },
+): { ctx: number; pid?: number } {
   const info = embeddingInfoForModel(basename(model.path));
   // An explicit `--ctx` is honoured verbatim — it's a deliberate choice that
   // also drives `--ubatch-size`/`--batch-size`. The bare command and the serve
   // sidecar (no overrides) keep the safe EMBED_CTX_CAP clamp.
   const ctx = overrides?.ctx ?? Math.min(info.ctxWindow ?? EMBED_CTX_CAP, EMBED_CTX_CAP);
-  launchServer({
+  const child = launchServer({
     llamaServer: cfg.llamaServer,
     modelPath: model.path,
     port,
     ctx,
     threads: overrides?.threads ?? cfg.defaultThreads,
+    host: overrides?.host ?? cfg.defaultHost,
     mode: 'embedding',
     pooling: info.pooling,
     role: 'embed',
-    extraArgs: info.alias ? ['--alias', info.alias] : [],
+    extraArgs: [
+      ...(info.alias ? ['--alias', info.alias] : []),
+      ...(overrides?.apiKey ? ['--api-key', overrides.apiKey] : []),
+    ],
     noMmap: cfg.noMmap,
     detached: true,
   });
-  return ctx;
+  return { ctx, pid: child.pid };
 }
 
 /**
@@ -181,7 +186,9 @@ export async function startEmbeddingSidecar(cfg: Config): Promise<string | null>
   if (!cfg.defaultEmbedModel) return null;
   const port = portForRole(cfg, 'embed');
   if (port === cfg.defaultPort) {
-    return pc.yellow(`Embedding sidecar skipped: defaultEmbedPort (${port}) clashes with defaultPort.`);
+    return pc.yellow(
+      `Embedding sidecar skipped: defaultEmbedPort (${port}) clashes with defaultPort.`,
+    );
   }
 
   const status = await serverStatus(cfg, 'embed');
@@ -200,9 +207,14 @@ export async function startEmbeddingSidecar(cfg: Config): Promise<string | null>
     );
   }
 
-  const ctx = launchEmbed(cfg, model, port);
-  const ready = await waitReady(port, 60);
+  const { ctx, pid } = launchEmbed(cfg, model, port);
+  const ready = await waitReady(port, 60, pid);
   if (!ready) {
+    if (pid !== undefined && !isAlive(pid)) {
+      return pc.yellow(
+        `Embedding sidecar (${model.name}) exited during startup — see \`locca logs embed\`.`,
+      );
+    }
     return pc.yellow(
       `Embedding sidecar (${model.name}) did not become ready in 60s — see \`locca logs embed\`.`,
     );
@@ -222,17 +234,23 @@ async function refuseIfPortTakenQuiet(port: number): Promise<boolean> {
 // rather than guess. Exits the process on any unresolvable case.
 function resolveEmbedModelNonInteractive(args: EmbedArgs, pool: Model[]): Model {
   if (args.pattern !== undefined) {
-    const m = findFirstMatch(pool, args.pattern);
+    const matches = findMatches(pool, args.pattern);
+    const m = matches[0];
     if (!m) {
       p.log.error(`No model matching '${args.pattern}' in the models dir.`);
       p.log.info(`Available: ${pool.map((c) => c.name).join(', ')}`);
       process.exit(1);
     }
+    if (matches.length > 1) {
+      p.log.warn(`Pattern '${args.pattern}' matches ${matches.length} models — using '${m.name}'.`);
+    }
     return m;
   }
   // `--yes` / no TTY with no pattern: only unambiguous with a single candidate.
   if (pool.length === 1) return pool[0];
-  p.log.error('Multiple embedding models found — pass a model pattern, e.g. `locca embed bge --yes`.');
+  p.log.error(
+    'Multiple embedding models found — pass a model pattern, e.g. `locca embed bge --yes`.',
+  );
   p.log.info(`Available: ${pool.map((c) => c.name).join(', ')}`);
   process.exit(1);
 }

@@ -5,15 +5,19 @@ import * as p from '@clack/prompts';
 import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama } from '../deps.js';
-import { findFirstMatch, pickModel, scanModels } from '../models.js';
+import { type CommonServeFlags, parseCommonServeFlags, strFlag } from '../flags.js';
+import { findMatches, pickModel, scanModels } from '../models.js';
 import { refuseIfPortTaken } from '../preflight.js';
 import { parseDuration, runIdleProxy } from '../proxy.js';
 import {
   PIDFILE,
   type ServeOpts,
+  isAlive,
   launchServer,
   serverStatus,
   stopServer,
+  tailLog,
+  waitForPortFree,
   waitReady,
 } from '../server.js';
 import type { Config, Model } from '../types.js';
@@ -24,12 +28,7 @@ import { startEmbeddingSidecar } from './embed.js';
 // Parsed `locca serve` invocation. A positional pattern (or `--yes`) switches
 // serve into non-interactive mode — no Clack prompts, defaults filled from
 // config, suitable for scripts / CI / a parent process managing locca.
-interface ServeArgs {
-  pattern?: string;
-  port?: number;
-  ctx?: number;
-  threads?: number;
-  yes: boolean;
+interface ServeArgs extends CommonServeFlags {
   // Foreground: locca supervises llama-server in the foreground instead of
   // detaching — logs stream to stdout, SIGTERM/Ctrl-C stops it cleanly, and
   // locca exits with the server. The right shape for a container's PID 1.
@@ -41,27 +40,20 @@ interface ServeArgs {
 }
 
 function parseServeArgs(rest: string[]): ServeArgs {
-  const out: ServeArgs = { yes: false, foreground: false };
-  const num = (s: string | undefined): number | undefined => {
-    const n = parseInt(s ?? '', 10);
-    return Number.isFinite(n) ? n : undefined;
-  };
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i];
-    if (a === '--yes' || a === '-y') out.yes = true;
-    else if (a === '--foreground' || a === '-f') out.foreground = true;
-    else if (a === '--port') out.port = num(rest[++i]);
-    else if (a.startsWith('--port=')) out.port = num(a.slice('--port='.length));
-    else if (a === '--ctx') out.ctx = num(rest[++i]);
-    else if (a.startsWith('--ctx=')) out.ctx = num(a.slice('--ctx='.length));
-    else if (a === '--threads') out.threads = num(rest[++i]);
-    else if (a.startsWith('--threads=')) out.threads = num(a.slice('--threads='.length));
-    else if (a === '--idle-timeout') out.idleTimeoutRaw = rest[++i];
-    else if (a.startsWith('--idle-timeout='))
-      out.idleTimeoutRaw = a.slice('--idle-timeout='.length);
-    else if (!a.startsWith('-') && out.pattern === undefined) out.pattern = a;
-  }
-  return out;
+  let foreground = false;
+  let idleTimeoutRaw: string | undefined;
+  const common = parseCommonServeFlags(rest, (a, take) => {
+    if (a === '--foreground' || a === '-f') {
+      foreground = true;
+      return true;
+    }
+    if (a === '--idle-timeout' || a.startsWith('--idle-timeout=')) {
+      idleTimeoutRaw = strFlag('--idle-timeout', a, take);
+      return true;
+    }
+    return false;
+  });
+  return { ...common, foreground, idleTimeoutRaw };
 }
 
 export async function serve(rest: string[] = []): Promise<void> {
@@ -84,9 +76,16 @@ export async function serve(rest: string[] = []): Promise<void> {
       process.exit(1);
     }
     // pid source: locca started it, so just swap — no need to interrogate.
-    p.log.info(`Stopping current server (pid ${status.pid}) to start a new one...`);
+    // (locca manages one chat server: starting a new one replaces the old,
+    // even when the ports differ.)
+    p.log.info(
+      `Stopping current server (pid ${status.pid}, port ${status.port}) to start a new one...`,
+    );
     await stopServer(cfg);
-    await new Promise((r) => setTimeout(r, 500));
+    if (!(await waitForPortFree(status.port))) {
+      p.log.error(`Old server did not release port ${status.port} within 10s — try again.`);
+      process.exit(1);
+    }
   }
 
   requireLlama(cfg);
@@ -139,6 +138,8 @@ export async function serve(rest: string[] = []): Promise<void> {
     port,
     ctx,
     threads,
+    host: args.host ?? cfg.defaultHost,
+    apiKey: args.apiKey,
     foreground: args.foreground,
     idleTimeout,
   });
@@ -150,11 +151,15 @@ export async function serve(rest: string[] = []): Promise<void> {
 // rather than guess. Exits the process on any unresolvable case.
 function resolveModelNonInteractive(args: ServeArgs, models: Model[], chatModels: Model[]): Model {
   if (args.pattern !== undefined) {
-    const m = findFirstMatch(models, args.pattern);
+    const matches = findMatches(models, args.pattern);
+    const m = matches[0];
     if (!m) {
       p.log.error(`No model matching '${args.pattern}' in the models dir.`);
       p.log.info(`Available: ${chatModels.map((c) => c.name).join(', ')}`);
       process.exit(1);
+    }
+    if (matches.length > 1) {
+      p.log.warn(`Pattern '${args.pattern}' matches ${matches.length} models — using '${m.name}'.`);
     }
     if (isEmbeddingModelName(m.name)) {
       p.log.error(`'${m.name}' is an embedding model — serve it with \`locca embed\`.`);
@@ -228,10 +233,21 @@ async function launchModel(
     port,
     ctx,
     threads,
+    host,
+    apiKey,
     foreground,
     idleTimeout,
-  }: { port: number; ctx: number; threads: number; foreground: boolean; idleTimeout?: number },
+  }: {
+    port: number;
+    ctx: number;
+    threads: number;
+    host?: string;
+    apiKey?: string;
+    foreground: boolean;
+    idleTimeout?: number;
+  },
 ): Promise<void> {
+  const bindHost = host ?? '0.0.0.0';
   // One launch template, reused for a plain launch and for every proxy respawn,
   // so a reloaded model is byte-identical to the original.
   const serveOpts: ServeOpts = {
@@ -241,9 +257,11 @@ async function launchModel(
     port,
     ctx,
     threads,
+    host: bindHost,
     extraArgs: [
       ...serverArgsForModel(basename(model.path)),
       ...mtpArgsForModel(model.path, cfg, cfg.llamaServer),
+      ...(apiKey ? ['--api-key', apiKey] : []),
     ],
     noMmap: cfg.noMmap,
     parallel: cfg.defaultParallel,
@@ -255,7 +273,7 @@ async function launchModel(
   if (idleTimeout !== undefined) {
     await runIdleProxy({
       serveOpts,
-      publicHost: '0.0.0.0',
+      publicHost: bindHost,
       publicPort: port,
       internalPort: port + 1,
       idleSec: idleTimeout,
@@ -274,12 +292,20 @@ async function launchModel(
   });
 
   if (foreground) {
-    await superviseForeground(child, port, basename(model.path));
+    await superviseForeground(child, port, basename(model.path), bindHost);
     return;
   }
 
-  const ready = await waitReady(port, 60);
+  const ready = await waitReady(port, 60, child.pid);
   if (!ready) {
+    if (child.pid !== undefined && !isAlive(child.pid)) {
+      p.log.error('llama-server exited during startup.');
+      const tail = tailLog('chat');
+      if (tail) p.log.message(pc.dim(tail));
+      p.log.info('Full log: locca logs');
+      await stopServer(cfg); // clears the pidfile
+      process.exit(1);
+    }
     p.log.warn('Server did not become ready within 60s — run `locca logs` to see output.');
     return;
   }
@@ -311,9 +337,10 @@ async function superviseForeground(
   child: ChildProcess,
   port: number,
   modelId: string,
+  bindHost: string,
 ): Promise<void> {
   console.log(
-    `  ${pc.green('●')} Serving ${pc.cyan(modelId)} at ${pc.cyan(`http://localhost:${port}/v1`)} ${pc.dim('(bound to 0.0.0.0)')}`,
+    `  ${pc.green('●')} Serving ${pc.cyan(modelId)} at ${pc.cyan(`http://localhost:${port}/v1`)} ${pc.dim(`(bound to ${bindHost})`)}`,
   );
   console.log(`  ${pc.dim('Ctrl-C / SIGTERM to stop — server logs stream below')}`);
   console.log();

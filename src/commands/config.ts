@@ -43,6 +43,13 @@ const SCHEMA: Field[] = [
   },
   { key: 'defaultPort', label: 'Default server port', kind: 'number' },
   {
+    key: 'defaultHost',
+    label: 'Server bind host',
+    kind: 'string',
+    optional: true,
+    hint: 'unset = 0.0.0.0 (LAN-visible); 127.0.0.1 = local only',
+  },
+  {
     key: 'defaultEmbedPort',
     label: 'Embedding server port',
     kind: 'number',
@@ -106,7 +113,7 @@ const SCHEMA: Field[] = [
     label: 'VRAM budget (MB)',
     kind: 'number',
     optional: true,
-    hint: 'caps auto-picked context window so 128k defaults don\'t OOM',
+    hint: "caps auto-picked context window so 128k defaults don't OOM",
     presets: [
       { value: 6 * 1024, label: '6 GB', hint: 'caps ctx to 8k' },
       { value: 8 * 1024, label: '8 GB', hint: 'caps ctx to 16k' },
@@ -121,7 +128,11 @@ const SCHEMA: Field[] = [
     label: 'Pi skills mode',
     kind: 'enum',
     choices: [
-      { value: 'lazy', label: 'lazy', hint: '/skill:<name> works, descriptions hidden from system prompt' },
+      {
+        value: 'lazy',
+        label: 'lazy',
+        hint: '/skill:<name> works, descriptions hidden from system prompt',
+      },
       { value: 'on', label: 'on', hint: "pi's default — descriptions in system prompt" },
       { value: 'off', label: 'off', hint: '--no-skills' },
     ],

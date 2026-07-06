@@ -1,16 +1,25 @@
+import { createRequire } from 'node:module';
 import { configExists } from './config.js';
 
 const cmd = process.argv[2];
 const rest = process.argv.slice(3);
+
+function printVersion(): void {
+  // Resolved relative to the compiled dist/cli.js (and src/cli.ts in dev) —
+  // both sit one level below the package root.
+  const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
+  console.log(pkg.version);
+}
 
 function printHelp(): void {
   console.log(`Usage: locca [command]
 
 Inference:
   serve [name]  Start API server with a model. With a model name (+ optional
-                --port/--ctx/--threads/--yes) it runs non-interactively — no
-                prompts. Add -f/--foreground to supervise it in the foreground
-                (logs to stdout, exits with the server — for Docker / systemd).
+                --port/--ctx/--threads/--host/--api-key/--yes) it runs
+                non-interactively — no prompts. Add -f/--foreground to
+                supervise it in the foreground (logs to stdout, exits with
+                the server — for Docker / systemd).
                 --idle-timeout <30s|15m|1h> runs a foreground proxy that frees
                 VRAM after the model is idle and reloads it on the next request
                 (first request after unload pays the cold-start latency).
@@ -38,12 +47,18 @@ Setup:
   install-llama   Download a prebuilt llama.cpp binary into ~/.locca
   config          View / edit settings (get, set, reset, path, list)
 
-Run without arguments for the interactive menu.`);
+Run without arguments for the interactive menu.
+locca --version prints the version.`);
 }
 
 async function dispatch(): Promise<void> {
   if (cmd === 'help' || cmd === '-h' || cmd === '--help') {
     printHelp();
+    return;
+  }
+
+  if (cmd === 'version' || cmd === '--version' || cmd === '-v') {
+    printVersion();
     return;
   }
 

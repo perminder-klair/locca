@@ -1,4 +1,4 @@
-import { type Stats, readdirSync, statSync } from 'node:fs';
+import { type Stats, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import search from '@inquirer/search';
 import { findEntryByFilename } from './catalog.js';
@@ -49,7 +49,18 @@ export function scanModels(modelsDir: string): Model[] {
   return out.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-function walk(dir: string, fn: (path: string) => void): void {
+function walk(dir: string, fn: (path: string) => void, seen: Set<string> = new Set()): void {
+  // Cycle guard: we follow symlinks (matches `find -L`), so a link pointing
+  // back up the tree would otherwise recurse forever. Track real paths.
+  let real: string;
+  try {
+    real = realpathSync(dir);
+  } catch {
+    return;
+  }
+  if (seen.has(real)) return;
+  seen.add(real);
+
   let entries: string[];
   try {
     entries = readdirSync(dir);
@@ -65,7 +76,7 @@ function walk(dir: string, fn: (path: string) => void): void {
     } catch {
       continue;
     }
-    if (s.isDirectory()) walk(full, fn);
+    if (s.isDirectory()) walk(full, fn, seen);
     else if (s.isFile()) fn(full);
   }
 }
@@ -89,13 +100,25 @@ export async function pickModel(models: Model[], message = 'Pick a model'): Prom
   return models.find((m) => m.path === choice) ?? null;
 }
 
-export function findFirstMatch(models: Model[], pattern: string): Model | null {
+/**
+ * All models matching a pattern, exact name match preferred. An exact match
+ * (case-insensitive) always beats substring hits — `locca serve qwen-7b`
+ * shouldn't grab `qwen-7b-instruct` just because it sorts first. Callers that
+ * resolve non-interactively should warn when more than one comes back.
+ */
+export function findMatches(models: Model[], pattern: string): Model[] {
   // Strip a trailing `.gguf` so callers can pass either the bare model name
   // ("gemma-4-E2B-it-UD-Q4_K_XL") or the full filename
   // ("gemma-4-E2B-it-UD-Q4_K_XL.gguf"). `scanModels` stores names without
   // the extension, so the raw pattern would never match.
   const q = pattern.toLowerCase().replace(/\.gguf$/, '');
-  return models.find((m) => m.name.toLowerCase().includes(q)) ?? null;
+  const exact = models.filter((m) => m.name.toLowerCase() === q);
+  if (exact.length > 0) return exact;
+  return models.filter((m) => m.name.toLowerCase().includes(q));
+}
+
+export function findFirstMatch(models: Model[], pattern: string): Model | null {
+  return findMatches(models, pattern)[0] ?? null;
 }
 
 // Per-model context override — picked by name match.

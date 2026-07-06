@@ -13,9 +13,7 @@ export async function logs(args: string[] = []): Promise<void> {
   const label = role === 'embed' ? 'embedding ' : '';
 
   if (!existsSync(target) || statSync(target).size === 0) {
-    note(
-      `No ${label}log at ${target} (only detached locca-started servers write here).`,
-    );
+    note(`No ${label}log at ${target} (only detached locca-started servers write here).`);
     return;
   }
   console.log(pc.magenta(`Last ${TAIL_LINES} lines of ${target}`));

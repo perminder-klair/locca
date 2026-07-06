@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import * as p from '@clack/prompts';
 import search from '@inquirer/search';
@@ -12,7 +12,15 @@ import {
 } from '../compat.js';
 import { loadConfig } from '../config.js';
 import { probeHardware } from '../hardware.js';
-import { downloadFile, fileSize, listFiles, parseRepo, searchModels } from '../hf.js';
+import {
+  downloadFile,
+  fileSha256,
+  fileSize,
+  listFiles,
+  parseRepo,
+  searchModels,
+  sha256File,
+} from '../hf.js';
 import { exitIfCancelled, pc } from '../ui.js';
 import { formatGB } from '../util.js';
 
@@ -279,10 +287,55 @@ async function searchAndPick(query: string): Promise<string | undefined> {
   return picked || undefined;
 }
 
+// Transient failures on a multi-GB download shouldn't throw the whole thing
+// away — downloadFile resumes from the .part, so a retry only re-fetches the
+// missing tail. Definite client errors (4xx) don't retry: the URL is wrong,
+// not the network.
+const MAX_ATTEMPTS = 5;
+
 async function downloadWithProgress(repo: string, file: string, dest: string): Promise<void> {
+  // Fetched up front (cheap API call) so we can verify integrity after the
+  // bytes land. Null = HF didn't tell us (non-LFS file, API hiccup) — skip
+  // verification rather than fail.
+  const expected = await fileSha256(repo, file);
+
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await downloadOnce(repo, file, dest);
+      break;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/Download failed: 4\d\d/.test(msg) || attempt >= MAX_ATTEMPTS) throw e;
+      const delaySec = 2 ** attempt; // 2, 4, 8, 16
+      process.stdout.write('\n');
+      p.log.warn(
+        `Download interrupted (${msg}) — resuming in ${delaySec}s (attempt ${attempt + 1}/${MAX_ATTEMPTS})...`,
+      );
+      await new Promise((r) => setTimeout(r, delaySec * 1000));
+    }
+  }
+
+  if (expected) {
+    process.stdout.write(`  verifying sha256... `);
+    const actual = await sha256File(dest);
+    if (actual !== expected) {
+      unlinkSync(dest);
+      throw new Error(
+        `checksum mismatch for ${file} (expected ${expected.slice(0, 12)}…, got ${actual.slice(0, 12)}…) — corrupt file removed, run the download again`,
+      );
+    }
+    process.stdout.write(`${pc.green('✓')}\n`);
+  }
+}
+
+async function downloadOnce(repo: string, file: string, dest: string): Promise<void> {
   let last = 0;
   const startTs = Date.now();
+  // First callback tells us where the download started (0, or the resume
+  // offset of a leftover .part) — speed is bytes *this session* over time.
+  let base: number | undefined;
   await downloadFile(repo, file, dest, (got, total) => {
+    if (base === undefined) base = got;
     // Throttle redraws to ~10/sec.
     const now = Date.now();
     if (now - last < 100 && got !== total) return;
@@ -291,7 +344,7 @@ async function downloadWithProgress(repo: string, file: string, dest: string): P
       const pct = ((got / total) * 100).toFixed(1);
       const gotGB = formatGB(got);
       const totalGB = formatGB(total);
-      const speed = (got / 1024 / 1024 / Math.max(1, (now - startTs) / 1000)).toFixed(1);
+      const speed = ((got - base) / 1024 / 1024 / Math.max(1, (now - startTs) / 1000)).toFixed(1);
       process.stdout.write(`\r  ${pct.padStart(5)}%  ${gotGB}/${totalGB} GB  ${speed} MB/s   `);
     } else {
       process.stdout.write(`\r  ${formatGB(got)} GB   `);

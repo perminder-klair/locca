@@ -74,9 +74,7 @@ export async function api(): Promise<void> {
   console.log(`    ${baseUrl}/chat/completions   chat (use this for agents)`);
   console.log(`    ${baseUrl}/completions        raw text completion`);
   console.log(`    ${baseUrl}/models             list loaded models`);
-  console.log(
-    `    ${baseUrl}/embeddings         ${embeddingsHint(primaryEmbed, live)}`,
-  );
+  console.log(`    ${baseUrl}/embeddings         ${embeddingsHint(primaryEmbed, live)}`);
   console.log();
   const root = baseUrl.replace(/\/v1$/, '');
   console.log(`  ${pc.magenta(pc.bold('Native (debugging)'))}`);
@@ -101,7 +99,10 @@ export async function api(): Promise<void> {
 }
 
 /** Render the `/embeddings` endpoint hint based on a live probe. */
-function embeddingsHint(probe: { ok: boolean; dim?: number; pooling?: string }, live: boolean): string {
+function embeddingsHint(
+  probe: { ok: boolean; dim?: number; pooling?: string },
+  live: boolean,
+): string {
   if (!live) return pc.dim('embeddings (probe when running)');
   if (!probe.ok) return pc.dim('not supported by the loaded model — use `locca embed`');
   const bits = [`${probe.dim}-dim`];
@@ -110,7 +111,9 @@ function embeddingsHint(probe: { ok: boolean; dim?: number; pooling?: string }, 
 }
 
 /** Print a full connection block for a dedicated embedding server. */
-async function printEmbeddingBlock(status: Extract<ServerStatus, { running: true }>): Promise<void> {
+async function printEmbeddingBlock(
+  status: Extract<ServerStatus, { running: true }>,
+): Promise<void> {
   const baseUrl = `${status.url}/v1`;
   const modelName = status.model ?? 'local';
   const source =
@@ -123,7 +126,9 @@ async function printEmbeddingBlock(status: Extract<ServerStatus, { running: true
   } else {
     // Health is up (serverStatus said running) but the embeddings probe
     // failed — say so rather than implying it works.
-    console.log(pc.yellow(`  ● Running — ${source} (embeddings probe failed; check \`locca logs embed\`)`));
+    console.log(
+      pc.yellow(`  ● Running — ${source} (embeddings probe failed; check \`locca logs embed\`)`),
+    );
   }
   console.log();
   console.log(`  Base URL    ${pc.cyan(baseUrl)}`);

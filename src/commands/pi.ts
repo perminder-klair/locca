@@ -4,11 +4,18 @@ import * as p from '@clack/prompts';
 import { isEmbeddingModelName, mtpArgsForModel, serverArgsForModel } from '../catalog.js';
 import { loadConfig } from '../config.js';
 import { requireLlama, requirePi } from '../deps.js';
-import { ctxForModel, findFirstMatch, pickModel, scanModels } from '../models.js';
+import { ctxForModel, findMatches, pickModel, scanModels } from '../models.js';
 import { PI_PROVIDER_KEY, ensurePiModelsJson } from '../pi-config.js';
 import { ensureStripSkillsExtension } from '../pi-extension.js';
 import { refuseIfPortTaken } from '../preflight.js';
-import { launchServer, serverStatus, stopServer, waitReady } from '../server.js';
+import {
+  launchServer,
+  serverStatus,
+  stopServer,
+  tailLog,
+  waitForPortFree,
+  waitReady,
+} from '../server.js';
 import { pc } from '../ui.js';
 
 export interface PiOpts {
@@ -48,9 +55,16 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
     process.exit(1);
   }
 
-  const model = pattern
-    ? findFirstMatch(allModels, pattern)
-    : await pickModel(chatModels, 'Pick a model for pi');
+  let model: import('../types.js').Model | null;
+  if (pattern) {
+    const matches = findMatches(allModels, pattern);
+    model = matches[0] ?? null;
+    if (model && matches.length > 1) {
+      p.log.warn(`Pattern '${pattern}' matches ${matches.length} models — using '${model.name}'.`);
+    }
+  } else {
+    model = await pickModel(chatModels, 'Pick a model for pi');
+  }
 
   if (!model) {
     if (pattern) p.log.error(`No model matching '${pattern}'`);
@@ -61,8 +75,9 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
 
   // If `switch` was invoked, stop locca-managed server first.
   if (opts.stopFirst && status.running && status.source === 'pid') {
+    const oldPort = status.port;
     await stopServer(cfg);
-    await new Promise((r) => setTimeout(r, 500));
+    await waitForPortFree(oldPort);
     status = await serverStatus(cfg);
   }
 
@@ -87,8 +102,12 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
       console.log(`Server already running with ${model.name}`);
     } else {
       console.log(`Switching model: ${status.model ?? '?'} -> ${model.name}`);
+      const oldPort = status.port;
       await stopServer(cfg);
-      await new Promise((r) => setTimeout(r, 500));
+      if (!(await waitForPortFree(oldPort))) {
+        p.log.error(`Old server did not release port ${oldPort} within 10s — try again.`);
+        process.exit(1);
+      }
       status = { running: false };
     }
   }
@@ -99,7 +118,7 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
   if (!status.running) {
     await refuseIfPortTaken(port);
     console.log(`Starting ${model.name} on port ${port} (ctx ${ctx})...`);
-    launchServer({
+    const child = launchServer({
       llamaServer: cfg.llamaServer,
       modelPath: model.path,
       mmprojPath: model.mmprojPath,
@@ -115,11 +134,12 @@ export async function pi(args: string[], opts: PiOpts = {}): Promise<void> {
       parallel: cfg.defaultParallel,
       detached: true,
     });
-    const ready = await waitReady(port, 30);
+    const ready = await waitReady(port, 30, child.pid);
     if (!ready) {
-      p.log.error(
-        `Server failed to start. Check ${process.env.XDG_RUNTIME_DIR ?? '/tmp'}/locca-server.log`,
-      );
+      p.log.error('Server failed to start.');
+      const tail = tailLog('chat');
+      if (tail) p.log.message(pc.dim(tail));
+      p.log.info('Full log: locca logs');
       await stopServer(cfg);
       process.exit(1);
     }
@@ -174,6 +194,4 @@ async function runPi(
       resolve();
     });
   });
-
-  void pc;
 }
