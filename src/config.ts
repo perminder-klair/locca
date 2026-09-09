@@ -17,8 +17,6 @@ function defaults(): Config {
     llamaServer: 'llama-server',
     llamaCli: 'llama-cli',
     llamaBench: 'llama-bench',
-    piSkills: 'lazy',
-    piExtensions: true,
     defaultParallel: 1,
     defaultEmbedPort: 8090,
     noMmap: false,
@@ -39,17 +37,9 @@ export function configExists(): boolean {
 function readConfigFile(): Partial<Config> {
   if (!existsSync(CONFIG_FILE)) return {};
   try {
-    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) as Partial<Config> & {
-      piSkills?: Config['piSkills'] | boolean;
-    };
-    // Migrate legacy boolean piSkills → tri-state. true was the old "skills on"
-    // and false was the old "--no-skills" — neither matches the new default of
-    // 'lazy', so we preserve the user's prior intent rather than forcing it.
-    const { piSkills, ...rest } = raw;
-    const coerced: Partial<Config> = { ...rest };
-    if (typeof piSkills === 'boolean') coerced.piSkills = piSkills ? 'on' : 'off';
-    else if (piSkills !== undefined) coerced.piSkills = piSkills;
-    return coerced;
+    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
+    const { piSkills, piExtensions, piContextFiles, ...config } = raw;
+    return config;
   } catch {
     return {};
   }

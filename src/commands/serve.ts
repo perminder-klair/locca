@@ -146,7 +146,7 @@ export async function serve(rest: string[] = []): Promise<void> {
 }
 
 // Resolve the model in non-interactive mode. A pattern fuzzy-matches the full
-// model list the same way `locca pi <pattern>` does; with no pattern (`--yes`
+// model list the same way `locca agent <pattern>` does; with no pattern (`--yes`
 // alone) we serve the sole chat model if there's exactly one, else we refuse
 // rather than guess. Exits the process on any unresolvable case.
 function resolveModelNonInteractive(args: ServeArgs, models: Model[], chatModels: Model[]): Model {

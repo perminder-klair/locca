@@ -14,17 +14,19 @@
 #       locca qwen3.5-9b           # model name (substring match)
 
 # ── Stage 1: build locca from source ────────────────────────────────────
-FROM node:22-bookworm AS build
+FROM node:24-bookworm AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 COPY bin ./bin
+COPY agent ./agent
+COPY web ./web
 RUN npm run build && npm prune --omit=dev
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS runtime
+FROM node:24-bookworm-slim AS runtime
 
 # Backend for the bundled llama.cpp:
 #   cpu    — portable, runs on any host (default)

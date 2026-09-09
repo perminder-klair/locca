@@ -1,7 +1,7 @@
 {
   "name": "@zeiq/locca",
-  "version": "0.13.0",
-  "description": "TUI for managing local LLM inference with llama.cpp",
+  "version": "2.0.0",
+  "description": "Persistent local AI workspaces powered by Eve and llama.cpp",
   "type": "module",
   "bin": {
     "locca": "bin/locca"
@@ -11,14 +11,16 @@
     "dist",
     "CLAUDE.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    ".output",
+    "web"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "npm run clean && tsc",
+    "build": "npm run clean && npm run build:cli && npm run build:agent",
     "dev": "tsc --watch",
     "start": "node bin/locca",
     "site": "python3 -m http.server 8765 --bind 127.0.0.1 --directory docs",
@@ -28,7 +30,11 @@
     "pretest": "npm run build",
     "test": "node --test test/unit/*.test.js",
     "prepublishOnly": "npm run build",
-    "release": "npm publish --access=public"
+    "release": "npm publish --access=public",
+    "build:cli": "tsc",
+    "build:agent": "EVE_TELEMETRY_DISABLED=1 eve build",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.agent.json",
+    "test:integration": "node --test test/integration/*.test.js"
   },
   "keywords": [
     "llama.cpp",
@@ -37,7 +43,8 @@
     "cli",
     "gguf",
     "huggingface",
-    "pi"
+    "eve",
+    "agents"
   ],
   "license": "MIT",
   "repository": {
@@ -45,9 +52,13 @@
     "url": "git+https://github.com/perminder-klair/locca.git"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.45",
     "@clack/prompts": "^0.8.2",
     "@inquirer/search": "^3.0.0",
-    "picocolors": "^1.1.1"
+    "ai": "7.0.94",
+    "eve": "0.52.3",
+    "picocolors": "^1.1.1",
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.13",

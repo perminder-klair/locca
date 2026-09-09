@@ -8,7 +8,7 @@ const RUNDIR = process.env.XDG_RUNTIME_DIR ?? '/tmp';
 
 /**
  * locca can run two servers side by side: the chat/generative server (`serve`,
- * `pi`) and a dedicated embedding server (`embed`). Each gets its own PIDFILE,
+ * `agent`) and a dedicated embedding server (`embed`). Each gets its own PIDFILE,
  * logfile, and port so their lifecycles are independent.
  */
 export type ServerRole = 'chat' | 'embed';
@@ -26,7 +26,7 @@ export function portForRole(cfg: Config, role: ServerRole = 'chat'): number {
 }
 
 // Back-compat aliases for the chat server's runtime files. Existing imports
-// (`logs`, `pi`, docs) reference these directly.
+// (`logs`, `agent`, docs) reference these directly.
 export const PIDFILE = pidFile('chat');
 export const LOGFILE = logFile('chat');
 
@@ -311,6 +311,10 @@ export type StopResult = { stopped: true; pid: number } | { stopped: false; reas
  * those need to be stopped via the tool that started them.
  */
 export async function stopServer(cfg: Config, role: ServerRole = 'chat'): Promise<StopResult> {
+  if (role === 'chat') {
+    const { assertAgentStopped } = await import('./agent-runtime.js');
+    assertAgentStopped();
+  }
   const s = await serverStatus(cfg, role);
   if (!s.running) return { stopped: false, reason: 'no server running' };
   if (s.source === 'attached') {

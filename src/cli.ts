@@ -25,8 +25,11 @@ Inference:
                 (first request after unload pays the cold-start latency).
   embed [name]  Start a dedicated embedding server (separate port). With a name
                 (+ optional --port/--ctx/--threads/--yes) it runs non-interactively.
-  pi [name]     Launch pi coding agent with a local model
-  switch        Stop current server and start a new model with pi
+  agent [name]  Open the persistent local agent workspace (Eve)
+                --workspace <directory> --port <3210> --no-open
+  agent stop    Stop agent service; keep conversations and jobs
+  agent status  Show agent service status (agent logs prints its log)
+  switch [name] Restart the agent with a different local model
   stop          Stop running server(s)
   bench         Benchmark a model
 
@@ -40,7 +43,7 @@ Models:
 
 Health:
   doctor      Health check: hardware, llama.cpp, server, models, log, config
-  optimise    Have pi review the deployment and suggest tweaks (uses local model)
+  optimise    Start a saved deployment review with the local agent
 
 Setup:
   setup           Run the interactive setup wizard
@@ -90,15 +93,17 @@ async function dispatch(): Promise<void> {
       await m.embed(rest);
       return;
     }
-    case 'pi': {
-      const m = await import('./commands/pi.js');
-      await m.pi(rest);
+    case 'pi':
+    case 'agent':
+    case 'chat': {
+      const m = await import('./commands/agent.js');
+      await m.agent(rest);
       return;
     }
     case 'switch':
     case 'swap': {
-      const m = await import('./commands/pi.js');
-      await m.pi(rest, { stopFirst: true });
+      const m = await import('./commands/agent.js');
+      await m.agent(rest, { stopFirst: true });
       return;
     }
     case 'stop': {
@@ -169,4 +174,7 @@ async function dispatch(): Promise<void> {
   }
 }
 
-await dispatch();
+await dispatch().catch((error) => {
+  console.error(`locca: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+});

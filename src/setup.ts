@@ -8,7 +8,6 @@ import { CONFIG_FILE, loadConfig, saveConfig } from './config.js';
 import { detectDistro, renderLlamaInstallHint } from './distro.js';
 import { probeHardware } from './hardware.js';
 import { scanModels } from './models.js';
-import { renderPiInstallHint, tryInstallPi } from './pi-install.js';
 import { exitIfCancelled, pc, printBanner } from './ui.js';
 import { autoThreads, expandHome, have } from './util.js';
 
@@ -141,32 +140,12 @@ export async function runSetup(): Promise<void> {
   // Stored in MB; `undefined` means no cap (current behaviour).
   const vramBudgetMB = await promptForVramBudget(existing.vramBudgetMB);
 
-  // Only pi context-files is asked here — skills mode and extensions stay
-  // at their defaults (lazy / on) and can be toggled later via `locca config`.
-  // Context-files is exposed because AGENTS.md / CLAUDE.md can be huge and
-  // blow out a small local model's context window.
-  p.note(
-    'Skills load lazily: /skill:<name> still works, but their descriptions are\nstripped from the system prompt to save context on smaller models.\nExtensions are enabled. Change either later with `locca config`.',
-    'Pi skills & extensions',
-  );
-
-  p.note(
-    'Pi can load AGENTS.md / CLAUDE.md from your project as system context.\nLeaving this off saves tokens on smaller models — recommended unless you\nhave a big context window. Change later with `locca config`.',
-    'Pi context files',
-  );
-  const piContextFiles = await p.confirm({
-    message: "Enable pi's AGENTS.md / CLAUDE.md context files?",
-    initialValue: existing.piContextFiles ?? false,
-  });
-  exitIfCancelled(piContextFiles);
-
   saveConfig({
     modelsDir,
     defaultPort: port,
     defaultCtx: ctx,
     defaultThreads: threads,
     vramBudgetMB,
-    piContextFiles,
   });
   p.log.success(`Wrote ${CONFIG_FILE}`);
 
@@ -177,39 +156,7 @@ export async function runSetup(): Promise<void> {
     await promptForFirstModel();
   }
 
-  // pi (coding agent)
-  if (have('pi')) {
-    p.log.success('pi (coding agent) found');
-  } else {
-    p.log.warn("'pi' (coding agent) NOT found in PATH");
-    const choice = await p.select<'auto' | 'manual' | 'skip'>({
-      message: 'How would you like to install it?',
-      initialValue: 'auto',
-      options: [
-        {
-          value: 'auto',
-          label: 'Let locca install pi via npm/mise',
-          hint: 'recommended — runs the install for you',
-        },
-        {
-          value: 'manual',
-          label: "I'll install it myself",
-          hint: 'show the install command, continue setup',
-        },
-        { value: 'skip', label: 'Skip for now' },
-      ],
-    });
-    exitIfCancelled(choice);
-
-    if (choice === 'auto') {
-      await tryInstallPi();
-    } else if (choice === 'manual') {
-      p.log.message(renderPiInstallHint());
-      p.log.message(
-        pc.dim('Setup will continue. Re-run `locca setup` later if you change your mind.'),
-      );
-    }
-  }
+  p.log.success('Eve agent runtime is included with Locca.');
 
   if (!llamaPresent) {
     p.log.warn(

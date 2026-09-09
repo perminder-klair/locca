@@ -124,22 +124,6 @@ const SCHEMA: Field[] = [
     ],
   },
   {
-    key: 'piSkills',
-    label: 'Pi skills mode',
-    kind: 'enum',
-    choices: [
-      {
-        value: 'lazy',
-        label: 'lazy',
-        hint: '/skill:<name> works, descriptions hidden from system prompt',
-      },
-      { value: 'on', label: 'on', hint: "pi's default — descriptions in system prompt" },
-      { value: 'off', label: 'off', hint: '--no-skills' },
-    ],
-  },
-  { key: 'piExtensions', label: 'Enable pi extensions', kind: 'boolean' },
-  { key: 'piContextFiles', label: 'Enable pi context files', kind: 'boolean' },
-  {
     key: 'defaultParallel',
     label: 'Concurrent server slots',
     kind: 'number',

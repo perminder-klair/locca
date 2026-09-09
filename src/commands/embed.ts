@@ -229,7 +229,7 @@ async function refuseIfPortTakenQuiet(port: number): Promise<boolean> {
 }
 
 // Resolve the embedding model in non-interactive mode. A pattern fuzzy-matches
-// the pool the same way `locca pi <pattern>` does; with no pattern (`--yes` or
+// the pool the same way `locca agent <pattern>` does; with no pattern (`--yes` or
 // no TTY) we serve the sole candidate if there's exactly one, else we refuse
 // rather than guess. Exits the process on any unresolvable case.
 function resolveEmbedModelNonInteractive(args: EmbedArgs, pool: Model[]): Model {

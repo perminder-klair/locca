@@ -8,3 +8,6 @@ test
 docs
 *.log
 npm-debug.log*
+
+.eve
+.output

@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 RUN apt-get update -qq \
  && apt-get install -y -qq curl ca-certificates \
- && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - >/dev/null \
+ && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null \
  && apt-get install -y -qq nodejs \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /locca

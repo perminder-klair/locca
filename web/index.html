@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Locca workspace</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar" aria-label="Conversations">
+    <a class="brand" href="/" aria-label="Locca home"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>locca<span class="version">2</span></a>
+    <button id="new-session" class="primary new-button">+ New conversation</button>
+    <div class="sidebar-heading">YOUR WORK <span id="session-count">0</span></div>
+    <nav id="sessions" aria-label="Saved conversations"><p class="muted">Your conversations will appear here.</p></nav>
+    <div class="sidebar-bottom"><button id="jobs-toggle" class="quiet">Recurring jobs <span id="job-count">0</span></button><div class="local-label"><span class="dot"></span> Inference on your machine</div></div>
+  </aside>
+  <main>
+    <header class="topbar"><div><span class="eyebrow">WORKSPACE</span><h1 id="conversation-title">A place to get things done.</h1></div><button id="files-toggle" class="quiet">Files <span aria-hidden="true">/</span></button></header>
+    <div id="error" role="alert" hidden></div>
+    <section id="conversation" aria-label="Conversation">
+      <div id="welcome" class="welcome"><div class="workspace-glyph" aria-hidden="true"></div><span class="eyebrow">LOCAL MODELS. REAL WORK.</span><h2>What are we working on?</h2><p>Give Locca a task and a folder.<br>Your work stays here, ready when you return.</p><div class="suggestions"><button data-prompt="Explore this project and explain its architecture. Read the relevant project instructions first."><span>Understand a project</span><small>Find the entry points and how they fit together.</small></button><button data-prompt="Review this workspace for one concrete bug. Show the evidence and propose a focused fix."><span>Investigate a bug</span><small>Follow the code, then check the result.</small></button><button data-prompt="Inspect my local model deployment and explain any settings worth improving. Give evidence for your suggestions."><span>Check my setup</span><small>Understand your model and machine.</small></button></div></div>
+      <div id="messages" role="log" aria-label="Messages"></div>
+      <div id="activity" class="activity" role="status" hidden><span class="dot"></span><span id="activity-text">Working…</span></div>
+      <div id="approvals"></div>
+    </section>
+    <div class="composer-area"><label class="workspace-field">Folder <input id="workspace" type="text" aria-label="Workspace folder" spellcheck="false" placeholder="/path/to/project"></label><form id="composer"><label for="prompt" class="sr-only">Message Locca</label><textarea id="prompt" rows="3" placeholder="Describe a task, ask a question, or pick up where you left off…" required></textarea><div class="composer-footer"><span id="model" class="model-name">Connecting to your model…</span><div><button id="compact" type="button" class="quiet" title="Summarize older context" hidden>Compact</button><button id="cancel" type="button" class="quiet danger" hidden>Stop task</button><button id="send" type="submit" class="primary">Send <span aria-hidden="true">↑</span></button></div></div></form><p class="composer-note">Files can be edited in this folder. Host shell commands ask for approval.</p></div>
+  </main>
+  <aside id="file-panel" class="file-panel" aria-label="Workspace files" hidden><div class="panel-heading"><h2>Workspace files</h2><button id="files-close" class="quiet" aria-label="Close files">×</button></div><button id="file-up" class="quiet">../ Parent folder</button><code id="file-path">.</code><div id="files"></div><pre id="file-content" tabindex="0" hidden></pre></aside>
+  <dialog id="jobs-dialog"><div class="panel-heading"><div><span class="eyebrow">ON YOUR SCHEDULE</span><h2>Recurring jobs</h2></div><button id="jobs-close" class="quiet" aria-label="Close recurring jobs">×</button></div><p class="muted">Runs while Locca is open in the background. Each run creates a saved conversation. Commands wait for your approval.</p><div id="jobs-list"></div><form id="job-form"><label>Job name<input name="title" required maxlength="120" placeholder="Weekly project review"></label><label>Task<textarea name="prompt" required placeholder="Review recent changes and write a short report."></textarea></label><label>Workspace folder<input name="workspace" required></label><label>Run every, in minutes<input name="intervalMinutes" type="number" min="1" max="525600" value="1440" required></label><button class="primary" type="submit">Create job</button></form><p id="job-error" role="alert"></p></dialog>
+</body>
+</html>

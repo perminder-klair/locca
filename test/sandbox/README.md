@@ -16,7 +16,7 @@ exit.
 
 > **Why Ubuntu 24.04 is the default:** llama.cpp's prebuilt Linux binaries are
 > built on Ubuntu and require glibc ≥ 2.38 / GLIBCXX_3.4.32 / CXXABI_1.3.15.
-> The `node:20` Debian Bookworm base ships glibc 2.36, so the binary
+> The `node:24-bookworm` Debian Bookworm base ships glibc 2.36, so the binary
 > won't load there — `llama-server` fails before it can parse any flag.
 > If you want to test Debian, build `llama.cpp` from source inside the
 > container instead of using the prebuilt.
@@ -28,7 +28,7 @@ exit.
 > `make_cpu_buft_list: no CPU backend found`. **Workaround:** inside the
 > container, run `build-llama` (baked into the image) — it builds llama.cpp
 > from source with `GGML_NATIVE=ON`, places it on PATH, and resets the
-> locca config so a `Pi`/`Serve` from the menu picks it up. Takes 3-8
+> locca config so a `Agent`/`Serve` from the menu picks it up. Takes 3-8
 > minutes once.
 
 Inside the container:
@@ -37,7 +37,6 @@ Inside the container:
 locca                                              # walks the first-run wizard
 ls -la ~/.locca/ && cat ~/.locca/config.json       # inspect what got written
 rm -rf ~/.locca                                    # reset
-npm uninstall -g @mariozechner/pi-coding-agent     # if testing pi auto-install repeatedly
 locca                                              # walk again
 exit                                               # --rm wipes the container
 ```
@@ -95,7 +94,6 @@ images built by `sandbox.sh build`.
 - Distro detection + install-hint rendering (`src/distro.ts`)
 - `auto` llama install: GitHub release download + extract + verify
   (`src/llama-install.ts`)
-- `auto` pi install via `npm install -g @mariozechner/pi-coding-agent`
 - Config write at mode 0600 (`src/config.ts`)
 - Re-run short-circuit when `~/.locca/config.json` exists
 

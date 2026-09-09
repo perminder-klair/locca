@@ -7,7 +7,7 @@ export interface Config {
    * what `locca api`'s "also reachable at" URLs assume. Set `127.0.0.1` to
    * keep it local-only; per-run `--host` overrides this. Note llama-server
    * has no auth by default — pass `--api-key` when exposing beyond localhost.
-   * (`locca pi` always binds 127.0.0.1 regardless.)
+   * (`locca agent` always binds 127.0.0.1 regardless.)
    */
   defaultHost?: string;
   defaultCtx: number;
@@ -15,32 +15,6 @@ export interface Config {
   llamaServer: string;
   llamaCli: string;
   llamaBench: string;
-  /**
-   * Skill loading mode for pi:
-   *   - `'lazy'` (default): skills are discoverable and `/skill:<name>` slash
-   *     commands work, but their descriptions are stripped from the system
-   *     prompt to save context on small local models. Implemented via a tiny
-   *     bundled pi extension that strips the `<available_skills>` block from
-   *     the prompt at `before_agent_start`.
-   *   - `'on'`: skills loaded normally (descriptions in system prompt).
-   *   - `'off'`: pass `--no-skills`; skills neither auto-invoke nor slash-invoke.
-   *
-   * Legacy boolean values are coerced on load: `true` → `'on'`, `false` → `'off'`.
-   */
-  piSkills?: 'off' | 'lazy' | 'on';
-  /**
-   * Enable pi's extensions. Default true — pi extensions add tooling like
-   * project-rule discovery and custom commands without growing the system
-   * prompt much.
-   */
-  piExtensions?: boolean;
-  /**
-   * Enable pi's AGENTS.md / CLAUDE.md context-file discovery. Default false —
-   * locca passes `--no-context-files` so small local models aren't blown out
-   * by large project instruction files. Enable for users who want pi's full
-   * project-aware surface.
-   */
-  piContextFiles?: boolean;
   /**
    * Approximate VRAM budget in MB. Caps the context window that
    * `ctxForModel()` auto-picks per model so 128k defaults don't OOM on
@@ -65,7 +39,7 @@ export interface Config {
   /**
    * Embedding model to bring up as a sidecar alongside the chat server.
    * A filename or substring matched against `modelsDir` (same rules as the
-   * `locca pi <pattern>` positional). When set, `locca serve` also launches
+   * `locca agent <pattern>` positional). When set, `locca serve` also launches
    * the embedding server on `defaultEmbedPort`, and `locca stop` stops both.
    * Unset (default) means no sidecar — run `locca embed` by hand when needed.
    */
