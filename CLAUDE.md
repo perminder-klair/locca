@@ -43,11 +43,45 @@ Every command that needs an LLM calls `serverStatus(cfg)`, which classifies the 
 
 `ctxForModel(name)` picks an auto-context based on regex matches against the model name. **Order matters** — bigger sizes are tested first, and the regexes use lookarounds so e.g. `Qwen3.5-9B` doesn't match `32B`. Edit this when tuning for a different VRAM budget.
 
-### Pi integration — `src/commands/pi.ts` + `src/pi-config.ts`
+### Eve integration
 
-Pi 0.70+ removed `--provider llamacpp` and now requires custom OpenAI-compatible servers to be registered in `~/.pi/agent/models.json`. `ensurePiModelsJson()` rewrites the `locca` provider entry on every launch so the model id and `baseUrl` always match the live server. **Do not touch other providers in that file** — only the `locca` key is owned by us.
+`src/commands/agent.ts` selects or attaches to inference and starts the detached
+`src/agent-service.ts` process. The service starts the packaged `.output/server/index.mjs`
+from the agent data directory so Eve workflow state persists outside the npm
+installation. `npm run build` builds both the CLI and Eve output. Include `.output`
+and `web` in the published package; an unbuilt checkout cannot start an agent.
 
-The `pi` command branches on two states: attached server (use the model it reports, warn if it doesn't match the user's pattern), or local mode (spawn/switch via `launchServer()` + `waitReady()`).
+`agent/` owns instructions, the direct AI SDK provider, and tools. Read the installed
+`node_modules/eve/docs/README.md` and the relevant guide before changing Eve APIs.
+`src/local-provider.ts` preloads an AI SDK provider registry in the isolated Eve
+process before its workflow modules. Only the `locca/` namespace resolves, through
+a direct OpenAI-compatible provider. Dynamic session/turn selections persist that
+local ID and the live context window. Keep this preload: without it, string IDs
+would use AI Gateway. Step-only provider objects cannot support manual compaction
+in the pinned Eve release because there is no durable model selection between turns.
+
+`src/agent-store.ts` stores workspace attachments, conversation titles and recurring
+jobs in SQLite. Eve owns the durable conversation events and workflow state. Do not
+replace Eve's session protocol with an independent agent loop or transcript store.
+
+`web/events.js` reduces durable events for browser replay and live updates. Preserve
+request IDs and authoritative input resolution events when changing approval UI.
+The browser never receives the internal Eve token. Its own loopback API uses a
+private login token, an HttpOnly cookie, and host/origin validation.
+
+File tools operate in the conversation's explicitly selected host workspace.
+`src/workspace.ts` validates relative paths and symlink containment. Bash is a
+host tool requiring approval, not a Docker sandbox. Keep its environment scoped
+and propagate timeout/cancellation to command processes.
+
+`locca stop` stops the agent before inference. `stopServer` rejects chat-server
+changes while the agent service runs. Model calls are serialized across sessions;
+changing this must account for llama.cpp slot context and memory use.
+
+The integration tests exercise the real built Eve service with a local deterministic
+OpenAI-compatible fixture. Run them after session, approval, service lifecycle,
+provider, or workspace changes. The fixture is test-only and never selects a
+production model.
 
 ### Config — `src/config.ts`
 

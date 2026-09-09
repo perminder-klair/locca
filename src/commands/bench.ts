@@ -41,14 +41,14 @@ export async function bench(): Promise<void> {
 
   // Upstream llama-bench has no --spec-type flag, so it walks every block as
   // a primary-model block and dies on the MTP head's different tensor layout
-  // (e.g. "missing tensor 'blk.N.ssm_conv1d.weight'"). serve/pi/optimise route
+  // (e.g. "missing tensor 'blk.N.ssm_conv1d.weight'"). serve/agent/optimise route
   // around this via mtpArgsForModel(); bench has no equivalent escape hatch.
   if (ggufHasMtpHead(model.path)) {
     p.log.warn(
       `${model.name} ships an MTP (Multi-Token Prediction) head.\n` +
         `Upstream llama-bench has no --spec-type flag, so it can't route the\n` +
         `MTP-head tensors and refuses to load the model.\n\n` +
-        `locca serve / pi / optimise handle this model fine — they auto-enable\n` +
+        `locca serve / agent / optimise handle this model fine — they auto-enable\n` +
         `--spec-type draft-mtp. To benchmark, use the non-MTP variant of the\n` +
         `same model (e.g. the …-GGUF repo instead of …-MTP-GGUF).`,
     );

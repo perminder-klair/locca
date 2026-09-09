@@ -1,8 +1,10 @@
 import * as p from '@clack/prompts';
 import { loadConfig } from '../config.js';
 import { stopServer } from '../server.js';
+import { stopAgent } from './agent.js';
 
 export async function stop(): Promise<void> {
+  await stopAgent();
   const cfg = loadConfig();
 
   // Stop both the chat server and the embedding sidecar (if either is

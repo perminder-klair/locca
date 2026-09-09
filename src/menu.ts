@@ -17,19 +17,18 @@ import { download, downloadCatalogEntry } from './commands/download.js';
 import { embed } from './commands/embed.js';
 import { logs } from './commands/logs.js';
 import { optimise } from './commands/optimise.js';
-import { pi } from './commands/pi.js';
+import { agent } from './commands/agent.js';
 import { searchHF } from './commands/search.js';
 import { serve } from './commands/serve.js';
 import { stop } from './commands/stop.js';
 import { probeHardware } from './hardware.js';
 import { scanModels } from './models.js';
-import { tryInstallPi } from './pi-install.js';
 import { probeServerProps, serverStatus } from './server.js';
 import { MENU_BACK, exitIfCancelled, pc, printBanner, setMenuMode } from './ui.js';
 import { formatGB, have } from './util.js';
 
 type Action =
-  | 'pi'
+  | 'agent'
   | 'serve'
   | 'embed'
   | 'switch'
@@ -54,7 +53,7 @@ export async function menu(): Promise<void> {
     console.log();
 
     const options: { value: Action; label: string }[] = [
-      { value: 'pi', label: 'Pi       — coding agent (local)' },
+      { value: 'agent', label: 'Agent    — open local workspace' },
       { value: 'serve', label: 'Serve    — start API server' },
       { value: 'embed', label: 'Embed    — start embedding server (separate port)' },
     ];
@@ -162,7 +161,7 @@ async function renderServerLine(): Promise<{ chat: boolean; embed: boolean }> {
 
 /**
  * Highlight missing prerequisites above the menu so users notice before
- * picking an action that will fail. Both llama.cpp and pi are required
+ * picking an action that will fail. Both llama.cpp are required
  * for locca's core flows; an empty models dir means there's nothing to
  * actually run.
  */
@@ -170,7 +169,6 @@ function renderSetupAlerts(): void {
   const cfg = loadConfig();
   const missing: string[] = [];
   if (!have('llama-server') && !have(cfg.llamaServer)) missing.push('llama.cpp not installed');
-  if (!have('pi')) missing.push('pi (coding agent) not installed');
   let modelsEmpty = false;
   try {
     modelsEmpty = scanModels(cfg.modelsDir).length === 0;
@@ -197,8 +195,8 @@ function isCancelLike(e: unknown): boolean {
 
 async function runAction(action: Exclude<Action, 'quit'>): Promise<void> {
   switch (action) {
-    case 'pi':
-      await pi([]);
+    case 'agent':
+      await agent([]);
       break;
     case 'serve':
       await serve();
@@ -238,13 +236,13 @@ async function runSettingsMenu(): Promise<void> {
         },
         {
           value: 'optimise',
-          label: 'Optimise — ask pi to review and suggest tweaks',
+          label: 'Optimise — ask the agent to review and suggest tweaks',
         },
         { value: 'bench', label: 'Bench    — benchmark a model' },
         { value: 'logs', label: 'Logs     — tail server log' },
         {
           value: 'install',
-          label: 'Install  — install / update llama.cpp and/or pi',
+          label: 'Install  — install / update llama.cpp',
         },
         { value: 'config', label: 'Config   — view / edit settings' },
         { value: 'back', label: '← Back' },
@@ -288,51 +286,13 @@ async function runSettingsMenu(): Promise<void> {
 }
 
 /**
- * Multiselect install picker: lets the user check llama.cpp and/or pi to
+ * Multiselect install picker: lets the user check llama.cpp to
  * install (or update) in one go. Status hints show whether each is already
  * present so the user can tell at a glance what's missing.
  */
 async function runInstallMenu(): Promise<void> {
-  const cfg = loadConfig();
-  const llamaPresent = have('llama-server') || have(cfg.llamaServer);
-  const piPresent = have('pi');
-
-  const llamaHint = cfg.llamaBundled
-    ? `installed — ${cfg.llamaBundled.version} · ${cfg.llamaBundled.backend} (re-installs latest)`
-    : llamaPresent
-      ? 'on PATH (will install locca-managed copy)'
-      : 'not installed';
-  const piHint = piPresent ? 'installed (re-installs latest)' : 'not installed';
-
-  const picks = await p.multiselect<'llama' | 'pi'>({
-    message: 'What would you like to install?',
-    options: [
-      {
-        value: 'llama',
-        label: 'llama.cpp — download / update prebuilt binary into ~/.locca',
-        hint: llamaHint,
-      },
-      {
-        value: 'pi',
-        label: 'pi        — coding agent (npm / mise)',
-        hint: piHint,
-      },
-    ],
-    required: false,
-  });
-  exitIfCancelled(picks);
-  if (picks.length === 0) {
-    p.log.message('Nothing selected.');
-    return;
-  }
-
-  if (picks.includes('llama')) {
-    const { installLlamaCommand } = await import('./commands/install-llama.js');
-    await installLlamaCommand([]);
-  }
-  if (picks.includes('pi')) {
-    await tryInstallPi();
-  }
+  const { installLlamaCommand } = await import('./commands/install-llama.js');
+  await installLlamaCommand([]);
 }
 
 /**
@@ -340,8 +300,8 @@ async function runInstallMenu(): Promise<void> {
  *   1. Already-installed .gguf files (always runnable — they're on disk).
  *   2. Catalog entries grouped by family/size with compatibility hints.
  *
- * Picking an installed model swaps the running server to it and launches pi
- * (preserves the legacy `switch = pi --stop-first` UX). Picking a catalog
+ * Picking an installed model swaps the running server to it and launches the agent
+ * (preserves the legacy `switch = agent --stop-first` UX). Picking a catalog
  * entry downloads it first, then does the same.
  */
 async function switchModel(): Promise<void> {
@@ -453,16 +413,16 @@ async function switchModel(): Promise<void> {
       p.log.error(`Download failed: ${(e as Error).message}`);
       return;
     }
-    // Hand off to pi with stopFirst so it spawns the server fresh against
-    // the just-downloaded weights. pi() does its own pickModel — pass the
+    // Hand off to the agent with stopFirst so it spawns the server fresh against
+    // the just-downloaded weights. agent() does its own pickModel — pass the
     // exact filename as a positional pattern so it picks deterministically.
-    await pi([pick.entry.build.hfFile], { stopFirst: true });
+    await agent([pick.entry.build.hfFile], { stopFirst: true });
     return;
   }
 
-  // Installed model: ask pi to start it (replaces the old `switch = pi
+  // Installed model: ask the agent to start it (replaces the old `switch = agent
   // --stop-first` shortcut).
-  await pi([pick.name], { stopFirst: true });
+  await agent([pick.name], { stopFirst: true });
 }
 
 interface CatalogRow {

@@ -27,7 +27,7 @@ export function printBanner(opts: { tagline?: boolean } = {}): void {
     lines.push(
       '',
       `  ${pc.dim('Run open-weight LLMs on your own hardware — llama.cpp, GGUFs,')}`,
-      `  ${pc.dim('pi agents. No cloud, no keys, your machine, your weights.')}`,
+      `  ${pc.dim('local agents. Your machine, your weights, your workspace.')}`,
     );
   }
   lines.push('');

@@ -70,7 +70,7 @@ export interface CatalogFamily {
    * What this family is for. `'chat'` (default) = a generative chat/instruct
    * model served on the main port. `'embedding'` = a dedicated embedding model
    * served by `locca embed` with `--embeddings --pooling …` and *none* of the
-   * chat-only flags (no sampler, no `--jinja`). Chat-only pickers (serve, pi,
+   * chat-only flags (no sampler, no `--jinja`). Chat-only pickers (serve, agent,
    * setup, switch) filter embedding families out so they're never launched as
    * a chat model by mistake.
    */

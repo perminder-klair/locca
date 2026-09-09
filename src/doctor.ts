@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CONFIG_FILE, loadConfig } from './config.js';
+import { runningAgent } from './agent-runtime.js';
 import { ggufHasMtpHead } from './gguf.js';
 import {
   type HardwareInfo,
@@ -10,10 +11,9 @@ import {
   readLlamaVersion,
 } from './hardware.js';
 import { ctxCapForBudget, scanModels } from './models.js';
-import { PI_PROVIDER_KEY, piModelsJsonPath } from './pi-config.js';
 import { LOGFILE, type ServerStatus, serverStatus } from './server.js';
 import type { Config, Model } from './types.js';
-import { have, which } from './util.js';
+import { which } from './util.js';
 
 export type Severity = 'info' | 'warn' | 'error';
 
@@ -54,13 +54,12 @@ export interface DoctorReport {
   liveCtx?: number;
   liveCtxTrain?: number;
   logWarnings: LogWarning[];
-  piInstalled: boolean;
-  piModelsJsonExists: boolean;
-  piHasLoccaProvider: boolean;
+  agent: { running: boolean; model?: string; url?: string };
   findings: Finding[];
 }
 
 export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorReport> {
+  const activeAgent = runningAgent();
   const hw = probeHardware();
   const llamaServerPath = which(cfg.llamaServer);
   const llamaServerVersion = llamaServerPath ? readLlamaVersion(llamaServerPath) : null;
@@ -80,8 +79,6 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
   }
 
   const logWarnings = scanLog(LOGFILE);
-  const piInstalled = have('pi');
-  const piState = inspectPiState();
 
   const findings = collectFindings({
     cfg,
@@ -96,11 +93,12 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
     status,
     liveCtx,
     logWarnings,
-    piInstalled,
-    piState,
   });
 
   return {
+    agent: activeAgent
+      ? { running: true, model: activeAgent.modelId, url: `http://127.0.0.1:${activeAgent.port}` }
+      : { running: false },
     cfg,
     hw,
     llamaServerPath,
@@ -114,9 +112,6 @@ export async function runDoctor(cfg: Config = loadConfig()): Promise<DoctorRepor
     liveCtx,
     liveCtxTrain,
     logWarnings,
-    piInstalled,
-    piModelsJsonExists: piState.exists,
-    piHasLoccaProvider: piState.hasLocca,
     findings,
   };
 }
@@ -211,35 +206,6 @@ async function fetchLiveCtx(baseUrl: string): Promise<{ ctx?: number; ctxTrain?:
   }
 }
 
-interface PiState {
-  exists: boolean;
-  hasLocca: boolean;
-  loccaBaseUrl?: string;
-  loccaModels: string[];
-}
-
-function inspectPiState(): PiState {
-  const path = piModelsJsonPath();
-  if (!existsSync(path)) {
-    return { exists: false, hasLocca: false, loccaModels: [] };
-  }
-  try {
-    const cfg = JSON.parse(readFileSync(path, 'utf8')) as {
-      providers?: Record<string, { baseUrl?: string; models?: Array<{ id?: string }> }>;
-    };
-    const locca = cfg.providers?.[PI_PROVIDER_KEY];
-    if (!locca) return { exists: true, hasLocca: false, loccaModels: [] };
-    return {
-      exists: true,
-      hasLocca: true,
-      loccaBaseUrl: locca.baseUrl,
-      loccaModels: (locca.models ?? []).map((m) => m.id).filter((id): id is string => Boolean(id)),
-    };
-  } catch {
-    return { exists: true, hasLocca: false, loccaModels: [] };
-  }
-}
-
 /**
  * Scan the llama-server log for known warning patterns. We read at most the
  * last 64 KiB so this stays fast even on long-running servers.
@@ -309,8 +275,6 @@ interface CollectArgs {
   status: ServerStatus;
   liveCtx?: number;
   logWarnings: LogWarning[];
-  piInstalled: boolean;
-  piState: PiState;
 }
 
 function collectFindings(args: CollectArgs): Finding[] {
@@ -485,37 +449,6 @@ function collectFindings(args: CollectArgs): Finding[] {
     }
   }
 
-  // ── Pi integration ────────────────────────────────────────────────
-  if (args.piInstalled) {
-    if (!args.piState.exists) {
-      out.push({
-        severity: 'info',
-        section: 'pi',
-        title: '~/.pi/agent/models.json not yet created',
-        suggestion: 'It will be written automatically the first time you run `locca pi`.',
-      });
-    } else if (!args.piState.hasLocca) {
-      out.push({
-        severity: 'info',
-        section: 'pi',
-        title: 'pi has no `locca` provider entry',
-        suggestion: 'Run `locca pi <model>` once — it will register the provider.',
-      });
-    } else if (
-      args.status.running &&
-      args.piState.loccaBaseUrl &&
-      args.piState.loccaBaseUrl !== `${args.status.url}/v1`
-    ) {
-      out.push({
-        severity: 'info',
-        section: 'pi',
-        title: `pi's locca baseUrl (${args.piState.loccaBaseUrl}) does not match the live server (${args.status.url}/v1)`,
-        suggestion:
-          'It will be rewritten on the next `locca pi` invocation. Safe to ignore otherwise.',
-      });
-    }
-  }
-
   return out;
 }
 
@@ -524,7 +457,7 @@ function gb(mb: number): string {
 }
 
 /**
- * Build a markdown summary suitable for piping into pi as the analysis
+ * Build a markdown summary suitable for sending to Eve as the analysis
  * prompt. Includes everything the model needs to give specific advice
  * without inventing flags it can't see.
  */

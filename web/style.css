@@ -1,0 +1,805 @@
+@font-face {
+  font-family: "Locca Sans";
+  src: url("/fonts/manrope.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Locca Mono";
+  src: url("/fonts/mono.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+pre,
+code {
+  font-family: "Locca Mono", monospace;
+}
+:root {
+  --page: #f5f7fb;
+  --surface: #fff;
+  --side: #edf1f8;
+  --ink: #18243c;
+  --muted: #657187;
+  --line: #dce3ef;
+  --accent: #3457d5;
+  --accent-soft: #e8edff;
+  --success: #187969;
+  --danger: #b73748;
+  --shadow: 0 12px 48px #17264712;
+  color-scheme: light;
+  font-family: "Locca Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--page);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 10px 14px;
+  transition: background 0.15s;
+}
+button:hover {
+  background: var(--side);
+}
+button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+pre:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+button.primary:hover {
+  filter: brightness(1.08);
+}
+button.quiet {
+  background: transparent;
+  border-color: transparent;
+}
+.muted {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: var(--muted);
+}
+.sidebar {
+  background: var(--side);
+  border-right: 1px solid var(--line);
+  padding: 28px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 26px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0 10px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 29px;
+  font-weight: 750;
+  letter-spacing: -1.5px;
+}
+.version {
+  font:
+    11px "Locca Mono",
+    monospace;
+  border: 1px solid var(--line);
+  padding: 3px 5px;
+  border-radius: 4px;
+  align-self: flex-start;
+  letter-spacing: 0;
+  margin-top: 4px;
+}
+.mark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+}
+.mark i {
+  width: 5px;
+  background: var(--accent);
+  border-radius: 3px;
+  height: 16px;
+}
+.mark i:nth-child(2) {
+  height: 24px;
+}
+.mark i:nth-child(3) {
+  height: 10px;
+}
+.new-button {
+  text-align: left;
+}
+.sidebar-heading {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0 10px;
+  margin-bottom: -13px;
+}
+#sessions {
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#sessions button {
+  text-align: left;
+  background: transparent;
+  border-color: transparent;
+  line-height: 1.5;
+  padding: 11px 10px;
+  overflow-wrap: anywhere;
+}
+#sessions button.active {
+  background: var(--surface);
+  box-shadow: 0 1px 4px #18243c08;
+  border-color: var(--line);
+}
+:where(#sessions) small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+:where(#sessions) p {
+  padding: 0 10px;
+  font-size: 12px;
+}
+.sidebar-bottom {
+  display: grid;
+  gap: 18px;
+}
+.sidebar-bottom button {
+  text-align: left;
+  width: 100%;
+}
+.sidebar-bottom :where(button) span {
+  float: right;
+  font-size: 11px;
+  background: var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.local-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 0 10px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--success);
+}
+main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.topbar {
+  padding: 25px 36px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: var(--surface);
+}
+h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.topbar button {
+  white-space: nowrap;
+}
+#conversation {
+  flex: 1;
+  overflow: auto;
+  padding: 28px max(30px, calc((100% - 780px) / 2));
+  scroll-behavior: smooth;
+}
+.welcome {
+  max-width: 720px;
+  margin: 5vh auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.workspace-glyph {
+  font-size: 33px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 8px 15px;
+  margin-bottom: 28px;
+}
+.welcome h2 {
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 600;
+  letter-spacing: -1.2px;
+  line-height: 1.2;
+  margin: 14px 0;
+}
+.welcome p {
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 0;
+}
+.suggestions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 35px;
+  width: 100%;
+}
+.suggestions button {
+  text-align: left;
+  padding: 17px 15px;
+  background: var(--surface);
+  min-height: 116px;
+  display: grid;
+  gap: 9px;
+  align-content: start;
+}
+.suggestions span {
+  font-weight: 600;
+  font-size: 12px;
+}
+.suggestions small {
+  color: var(--muted);
+  line-height: 1.7;
+  font-size: 11px;
+}
+.composer-area {
+  padding: 16px max(30px, calc((100% - 780px) / 2)) 20px;
+}
+.workspace-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.workspace-field input {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font:
+    11px "Locca Mono",
+    monospace;
+  flex: 1;
+  min-width: 0;
+  padding: 7px;
+}
+.workspace-field input:disabled {
+  opacity: 0.8;
+}
+#composer {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+textarea {
+  resize: vertical;
+  min-height: 66px;
+  max-height: 260px;
+}
+#prompt {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  line-height: 1.6;
+  padding: 0;
+  resize: none;
+}
+#prompt:focus-visible {
+  outline: none;
+}
+#composer:focus-within {
+  border-color: var(--accent);
+}
+.composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+}
+.composer-footer > div {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.model-name {
+  font:
+    10px "Locca Mono",
+    monospace;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+.composer-note {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 11px 0 0;
+  text-align: center;
+}
+.message {
+  margin-bottom: 25px;
+  line-height: 1.75;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.message-label {
+  display: block;
+  white-space: normal;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.message.user {
+  background: var(--accent-soft);
+  padding: 16px 20px;
+  border-radius: 11px;
+  margin-left: 50px;
+}
+.message.assistant {
+  padding: 10px 0;
+}
+.tool {
+  margin: 0 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 12px;
+}
+.tool summary {
+  padding: 10px 13px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.tool pre {
+  padding: 0 13px 13px;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.activity {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 10px 0 20px;
+}
+.activity .dot {
+  animation: pulse 1.3s ease-in-out infinite;
+}
+.approval {
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+.approval h3 {
+  font-size: 14px;
+  margin: 0 0 10px;
+}
+.approval pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--side);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.approval .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.approval input {
+  flex: 1;
+  min-width: 120px;
+}
+.danger {
+  color: var(--danger);
+}
+#error {
+  margin: 15px 30px 0;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 12px;
+  border-radius: 8px;
+}
+.file-panel {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 370px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  z-index: 5;
+  padding: 22px;
+  overflow: auto;
+}
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.panel-heading h2 {
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  margin: 8px 0 16px;
+}
+.panel-heading button {
+  font-size: 22px;
+}
+#file-path {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+#files {
+  display: grid;
+  gap: 4px;
+}
+#files button {
+  text-align: left;
+  border-color: transparent;
+  overflow-wrap: anywhere;
+}
+#file-content {
+  padding: 15px;
+  background: var(--page);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow: auto;
+  max-height: 60vh;
+}
+dialog {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: min(620px, calc(100% - 28px));
+  padding: 26px;
+  box-shadow: var(--shadow);
+  max-height: 90vh;
+  overflow: auto;
+}
+dialog::backdrop {
+  background: #101c3b66;
+}
+#job-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+#job-form label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+#job-form label:nth-child(2),
+#job-form label:nth-child(3) {
+  grid-column: 1 / -1;
+}
+input,
+textarea {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--ink);
+}
+#job-form button {
+  align-self: end;
+}
+.job-row {
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.job-row small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.job-row button {
+  align-self: center;
+}
+#job-error {
+  color: var(--danger);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: Hidden controls must override component layout. */
+  display: none !important;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #171e2c;
+    --surface: #1e283a;
+    --side: #131b29;
+    --ink: #e2e8f4;
+    --muted: #a2aec4;
+    --line: #303d53;
+    --accent: #718eff;
+    --accent-soft: #253458;
+    --success: #62bea5;
+    --danger: #f28c9b;
+    --shadow: 0 12px 48px #0002;
+    color-scheme: dark;
+  }
+  button.primary {
+    color: #101b37;
+  }
+}
+@media (max-width: 900px) {
+  body {
+    grid-template-columns: 205px minmax(0, 1fr);
+  }
+  .sidebar {
+    padding: 24px 12px 16px;
+  }
+  .topbar {
+    padding: 20px 24px;
+  }
+  #conversation {
+    padding: 24px;
+  }
+  .composer-area {
+    padding: 12px 24px 18px;
+  }
+  .suggestions {
+    grid-template-columns: 1fr;
+    margin-top: 22px;
+    gap: 8px;
+  }
+  .suggestions button {
+    min-height: auto;
+    padding: 12px;
+  }
+  .suggestions small {
+    display: none;
+  }
+  .welcome {
+    margin-top: 1vh;
+  }
+  .workspace-glyph {
+    margin-bottom: 20px;
+  }
+  .composer-footer > div {
+    gap: 0;
+  }
+  .composer-footer button {
+    padding: 9px;
+  }
+}
+@media (max-width: 600px) {
+  body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .sidebar {
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-size: 24px;
+    padding: 0;
+  }
+  .mark {
+    transform: scale(0.8);
+  }
+  .sidebar-heading,
+  .sidebar-bottom .local-label {
+    display: none;
+  }
+  .sidebar-bottom {
+    position: absolute;
+    top: 67px;
+    right: 8px;
+    z-index: 1;
+  }
+  .sidebar-bottom button {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .sidebar-bottom :where(button) span {
+    margin-left: 5px;
+  }
+  #sessions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    max-width: calc(100% - 122px);
+    min-height: 28px;
+  }
+  #sessions button {
+    font-size: 10px;
+    white-space: nowrap;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 5px 8px;
+    flex-shrink: 0;
+  }
+  :where(#sessions) small {
+    display: none;
+  }
+  :where(#sessions) p {
+    margin: 5px 0;
+    font-size: 10px;
+  }
+  .new-button {
+    font-size: 11px;
+    padding: 8px;
+  }
+  .topbar {
+    padding: 16px 20px;
+  }
+  .topbar h1 {
+    font-size: 13px;
+  }
+  .topbar .eyebrow {
+    font-size: 9px;
+  }
+  #conversation {
+    padding: 20px;
+  }
+  .welcome h2 {
+    font-size: 28px;
+  }
+  .welcome p {
+    font-size: 13px;
+  }
+  .welcome .eyebrow {
+    font-size: 9px;
+  }
+  .workspace-glyph {
+    display: none;
+  }
+  .suggestions {
+    margin-top: 20px;
+  }
+  .composer-area {
+    padding: 10px 16px 14px;
+  }
+  .composer-note {
+    font-size: 9px;
+  }
+  .model-name {
+    max-width: 43%;
+    font-size: 9px;
+  }
+  .message.user {
+    margin-left: 20px;
+  }
+  .file-panel {
+    width: 100%;
+  }
+  #job-form {
+    grid-template-columns: 1fr;
+  }
+  #job-form label {
+    grid-column: 1 / -1;
+  }
+  #compact {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity .dot {
+    animation: none;
+  }
+  button {
+    transition: none;
+  }
+  #conversation {
+    scroll-behavior: auto;
+  }
+}
+
+.workspace-glyph::before {
+  content: "";
+  display: block;
+  width: 23px;
+  height: 22px;
+  border: 2px solid var(--accent);
+  border-top-width: 6px;
+  border-radius: 3px;
+  margin: 10px 0;
+}

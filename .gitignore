@@ -20,3 +20,6 @@ npm-debug.log*
 .zed/*
 !.zed/settings.json
 .idea/
+
+.eve/
+.output/

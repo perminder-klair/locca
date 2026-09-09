@@ -25,7 +25,12 @@ export function renderDoctor(report: DoctorReport): void {
   console.log();
   renderModels(report);
   console.log();
-  renderPi(report);
+  console.log(`  ${pc.magenta(pc.bold('Eve agent'))}`);
+  console.log(
+    report.agent.running
+      ? `    ${pc.green('running')} at ${report.agent.url}\n    Model        ${report.agent.model}`
+      : `    ${pc.dim('stopped — run `locca agent` to open a workspace')}`,
+  );
   console.log();
   renderLogWarnings(report);
   console.log();
@@ -119,22 +124,6 @@ function renderModels(r: DoctorReport): void {
   console.log(
     `    ${pc.dim(`${r.models.length} model${r.models.length === 1 ? '' : 's'}, ${formatGB(totalBytes)} GiB total`)}`,
   );
-}
-
-function renderPi(r: DoctorReport): void {
-  console.log(`  ${pc.magenta(pc.bold('pi'))}`);
-  if (!r.piInstalled) {
-    console.log(`    ${pc.dim('not installed (only needed for `locca pi` and `locca optimise`)')}`);
-    return;
-  }
-  console.log(`    Installed    ${pc.green('yes')}`);
-  if (!r.piModelsJsonExists) {
-    console.log(`    models.json  ${pc.dim('not yet created')}`);
-  } else if (!r.piHasLoccaProvider) {
-    console.log(`    locca entry  ${pc.yellow('not registered')}`);
-  } else {
-    console.log(`    locca entry  ${pc.green('registered')}`);
-  }
 }
 
 function renderLogWarnings(r: DoctorReport): void {

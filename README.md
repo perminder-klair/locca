@@ -1,15 +1,12 @@
 # locca
 
-A TUI around [llama.cpp](https://github.com/ggml-org/llama.cpp) for running,
-managing, and benchmarking local GGUF models, and for launching the
-[`pi`](https://pi.dev) coding agent against your local server.
+Locca runs persistent local AI workspaces with [Eve](https://github.com/vercel/eve)
+and [llama.cpp](https://github.com/ggml-org/llama.cpp). Use your own GGUF models
+for coding, file tasks, deployment reviews, and recurring jobs. Open a browser,
+attach a folder, and return to the same conversation later.
 
-https://github.com/user-attachments/assets/3a767b12-69ad-406c-a2af-c071132ac28c
-
-Works on Linux and macOS, against any GPU llama.cpp can target (Vulkan,
-Metal, CUDA, ROCm) or CPU-only. Defaults are tuned for iGPU-class hardware
-(q8_0 KV cache, single slot, batch size 1024) so a 7B–9B model with 128k
-context fits on a 16 GB shared-VRAM iGPU.
+The CLI also manages model downloads, inference servers, embeddings, and
+benchmarks on Linux and macOS. Node.js 24 or newer is required.
 
 ## Quickstart
 
@@ -30,7 +27,7 @@ The setup wizard:
    Each curated size shows a `fits — 5.6 GB dl, 14.3 GB RAM, 256k ctx`
    (or `needs 32 GB+ RAM`) hint based on detected hardware, so you can't
    accidentally pick a 30 GB download that won't run.
-5. Offers to install `pi`: tries `mise` → `npm` → manual hint.
+5. Confirms the bundled Eve agent runtime is ready.
 
 Then it writes `~/.locca/config.json` and drops you at the menu.
 
@@ -45,20 +42,25 @@ npm link              # symlinks `locca` into your PATH
 ```
 
 For development: `npm test` (builds, then runs the `node:test` suite in
-`test/unit/`) and `npm run lint` (Biome). CI runs both on every push/PR.
+`test/unit/`) and `npm run lint` (Biome). CI also runs `npm run typecheck` and `npm run test:integration`.
+The integration test boots the actual Eve runtime against a deterministic local
+OpenAI-compatible fixture, exercises tools and approvals, and restarts the service.
 
 ## Commands
 
 ```
-locca                          # interactive menu (Pi is default)
-locca pi [model-pattern]       # launch pi against a local server
+locca                          # interactive menu
+locca agent [model-pattern]    # open the persistent browser workspace
+locca agent status             # inspect agent service
+locca agent stop               # stop agent service, retaining saved work
+locca agent logs               # print recent agent service logs
 locca serve [model] [opts]     # start llama-server — interactive, head-less, -f foreground, or --idle-timeout
                                #   opts: --port/--ctx/--threads/--host/--api-key/--yes
 locca embed [model] [opts]     # dedicated embedding server (separate port); same opts as serve
 locca switch                   # picker: installed models + curated catalog
 locca bench                    # run llama-bench against a model
 locca doctor                   # health check: hardware, llama.cpp, server, log, config
-locca optimise                 # ask pi to review the deployment and suggest tweaks
+locca optimise                 # start a saved deployment review with Eve
 locca api                      # print OpenAI-compatible connection info
 locca logs [embed]             # tail server log (chat by default, or the embed server)
 locca download [user/repo]     # pull a GGUF from HuggingFace
@@ -72,7 +74,67 @@ locca help                     # full command listing
 locca --version                # print the installed version
 ```
 
-`locca pi qwen` fuzzy-matches the first `*qwen*.gguf` in your models dir.
+`locca agent qwen` fuzzy-matches the first `*qwen*.gguf` in your models dir.
+
+## Agent workspaces
+
+```bash
+locca agent qwen --workspace ~/Projects/my-app
+locca agent --no-open                       # print the browser link
+locca agent --port 3211 --workspace ~/notes  # choose a browser port
+locca agent stop
+locca switch another-model
+```
+
+Locca starts or attaches to a local llama.cpp server and starts Eve in the
+background. Open the printed private link to authenticate to the browser.
+The service binds to `127.0.0.1`; the browser link grants access to the local
+workspace, so treat it as a credential. The token moves into an HttpOnly cookie
+and is removed from the URL after sign-in.
+
+- **Conversations:** saved on disk and replayed when you reopen them. Closing
+  the browser does not stop the task. `locca agent stop` stops the service;
+  starting it again reopens durable Eve state, including pending approvals.
+- **Folders:** choose a folder before the first message. That folder stays
+  attached to the conversation. File reads and writes use relative paths and
+  reject traversal or symlinks outside the folder. Browse files from the Files
+  panel. File writes modify the selected folder directly.
+- **Commands:** shell commands run on the host, with the workspace as their
+  working directory. The browser shows the exact command and requires approval.
+  This is a host workspace, not a container security boundary. Commands have
+  time and output limits; cancellation is propagated to the process.
+- **Context:** Eve compacts older context automatically. Use Compact between
+  turns to request compaction, or New conversation to start fresh.
+- **Jobs:** create an interval-based recurring task in Recurring jobs. Each run
+  creates a conversation. Jobs run while the background service is running;
+  after downtime, one overdue run is dispatched without replaying missed ticks.
+  A job waits for its previous run and any pending approval before starting
+  another. Remove a job to stop future runs; its conversations remain saved.
+- **Models:** all model calls use the local server through a serialized queue.
+  `locca switch <model>` restarts the agent service with a different model.
+  Existing conversations use that model on their next turn. `locca stop` stops
+  the agent and the managed inference servers. Direct server changes are blocked
+  while the agent service is running.
+
+Eve and its client are pinned dependencies shipped with Locca. You do not need
+an AI Gateway account or a cloud model key. The built-in agent tools cover
+files, shell commands, clarification questions, and deployment inspection.
+Model quality still determines how reliably tasks and tool calls work.
+
+Agent data defaults to `~/.locca/agent`. Set `LOCCA_AGENT_DATA_DIR` for an
+isolated installation. Back up the entire directory while the service is
+stopped. The service does not automatically start at machine boot; use your
+process manager or run `locca agent` after login.
+
+### Migrating from v1
+
+Install Node 24, update Locca, and run `locca agent`. Existing models and
+inference settings are reused. The old `locca pi` command is a compatibility
+alias for the new workspace; Pi-specific flags are no longer accepted.
+Legacy `piSkills`, `piExtensions`, and `piContextFiles` settings are ignored
+and removed when configuration is saved. Locca no longer reads or writes
+`~/.pi`; your Pi installation, settings and history remain untouched. Pi
+conversation history is not imported into Eve.
 
 ## `locca api`
 
@@ -93,7 +155,7 @@ The same output prints automatically after `locca serve` succeeds.
 
 `locca serve` is interactive by default — it prompts for the model and
 settings. Pass a model name (substring-matched against your models dir, same
-as `locca pi qwen`) and it runs with no prompts, which is what you need in
+as `locca agent qwen`) and it runs with no prompts, which is what you need in
 Docker, systemd, or CI:
 
 ```
@@ -217,7 +279,7 @@ Point any OpenAI-compatible client at `http://<host>:8080/v1` (no API key).
 
 | Flag | Purpose |
 |---|---|
-| `--host 0.0.0.0` (`serve`) / `127.0.0.1` (`pi`) | LAN access vs loopback only — override per-run with `--host` or permanently with `defaultHost` in config |
+| `--host 0.0.0.0` (`serve`) / `127.0.0.1` (`agent`) | LAN access vs loopback only — override per-run with `--host` or permanently with `defaultHost` in config |
 | `--api-key <key>` | Off by default (any key accepted) — pass `--api-key` to `serve`/`embed` to require it |
 | `--n-gpu-layers 999` | All layers on GPU |
 | `--flash-attn on` | Flash attention |
@@ -281,8 +343,7 @@ rate sets time-to-first-token on long prompts.
 
 While the bench runs, the spinner shows live stats — elapsed time, CPU
 load, RAM, and (if `nvidia-smi` or `rocm-smi` is on PATH) GPU
-utilisation and VRAM. The same line shows during the "pi is thinking"
-wait in `locca optimise`.
+utilisation and VRAM. Agent activity is shown in the browser workspace.
 
 ## File layout
 
@@ -292,7 +353,9 @@ wait in `locca optimise`.
 | Config | `~/.locca/config.json` |
 | Server PID | `${XDG_RUNTIME_DIR:-/tmp}/locca-server.pid` |
 | Server log | `${XDG_RUNTIME_DIR:-/tmp}/locca-server.log` |
-| pi provider config | `${PI_CODING_AGENT_DIR:-~/.pi/agent}/models.json` |
+| Agent sessions and jobs | `~/.locca/agent/locca.sqlite` |
+| Eve workflow state | `~/.locca/agent/.eve/.workflow-data/` |
+| Agent service state and log | `~/.locca/agent/service.json`, `agent.log` |
 | Models dir | `~/.locca/models` (default, configurable) |
 | Downloaded GGUFs | `$modelsDir/<repo>/` |
 
@@ -313,9 +376,6 @@ by hand, or re-run the wizard:
   "llamaServer": "llama-server",
   "llamaCli": "llama-cli",
   "llamaBench": "llama-bench",
-  "piSkills": "lazy",
-  "piExtensions": true,
-  "piContextFiles": false,
   "vramBudgetMB": 16384,
   "defaultParallel": 1,
   "defaultEmbedPort": 8090,
@@ -343,20 +403,6 @@ If your binaries aren't on `$PATH`, point them at absolute paths:
   "llamaBench":  "/home/you/llama.cpp/build/bin/llama-bench"
 }
 ```
-
-`piSkills` is tri-state (default `"lazy"`):
-
-- `"lazy"` — `/skill:<name>` slash commands still work, but skill
-  descriptions are stripped from the system prompt to save context on
-  small local models. Implemented via a tiny bundled pi extension.
-- `"on"` — pi's default; descriptions are loaded and the model can
-  auto-invoke skills.
-- `"off"` — passes `--no-skills`.
-
-`piExtensions` (default `true`) toggles pi's extension discovery, needed
-for `lazy` skills mode. `piContextFiles` (default `false`) toggles pi's
-`AGENTS.md` / `CLAUDE.md` discovery; off by default so small models
-aren't blown out by large project instruction files.
 
 `vramBudgetMB` is optional. It caps the auto-picked context window:
 
@@ -411,7 +457,7 @@ removes the cap).
 
 Required:
 
-- `node` ≥ 20
+- `node` ≥ 24
 - `llama.cpp`:
   - Arch: `sudo pacman -S llama.cpp` · `yay -S llama.cpp-vulkan-git` · `yay -S llama.cpp-hip-git`
   - macOS: `brew install llama.cpp`
@@ -422,13 +468,6 @@ Required:
 
 Optional:
 
-- `pi` ([pi.dev](https://pi.dev)) for the `locca pi` subcommand. The
-  setup wizard offers to install it, or:
-  ```bash
-  npm install -g @mariozechner/pi-coding-agent
-  # or
-  mise use -g npm:@mariozechner/pi-coding-agent
-  ```
 - `vulkan-tools` — `vulkaninfo` for GPU diagnostics.
 - `rocm-smi-lib` — VRAM monitoring on AMD discrete GPUs.
 - `jq` — used by `diagnose.sh` for prettier output.
@@ -453,7 +492,6 @@ npm run build
 ```bash
 npm uninstall -g @zeiq/locca
 rm -rf "$HOME/.locca"                                   # config + models (optional)
-rm -rf "$HOME/.pi/agent"                                # pi provider config (optional)
 rm -f "${XDG_RUNTIME_DIR:-/tmp}/locca-server."{pid,log}
 ```
 

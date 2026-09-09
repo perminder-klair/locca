@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0b0d10" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta property="og:title" content="locca — coding agents on local GGUF models" />
-  <meta property="og:description" content="One-command model switching for llama.cpp. iGPU-tuned defaults. OpenAI-compatible — point pi, Cursor, Claude Code, or any client at the model you just downloaded." />
+  <meta property="og:description" content="One-command model switching for llama.cpp. iGPU-tuned defaults. OpenAI-compatible — point Cursor, Claude Code, or any client at the model you just downloaded." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="og.png" />
   <meta property="og:image:width" content="1200" />
@@ -650,7 +650,7 @@
     }
     .code-block.aside .ln { font-size: 12.5px; line-height: 1.6; }
 
-    /* ---------- pi callout ---------- */
+    /* ---------- agent callout ---------- */
     .callout {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -679,7 +679,7 @@
       padding: 1px 6px;
       border-radius: 4px;
     }
-    .callout .pi-mark {
+    .callout .agent-mark {
       font-family: var(--mono);
       font-size: 64px;
       line-height: 1;
@@ -733,7 +733,7 @@
       .term-body .term-hint { font-size: 10.5px; margin-top: 8px; }
 
       /* cmd-grid rows: stack code above description so neither column
-         gets squished when the code label is long (e.g. ~/.pi/agent/...) */
+         gets squished when the code label is long (e.g. ~/.locca/agent/...) */
       .cmd-grid { padding: 16px 18px; }
       .cmd-row {
         flex-direction: column;
@@ -784,10 +784,10 @@
           <p class="lede">
             locca sets up <code translate="no">llama.cpp</code>, helps you
             pick GGUF models that fit your hardware, benchmarks them, and
-            wires the
-            <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">pi</a>
-            coding agent (or any OpenAI-compatible client) to whatever
-            you're running. One CLI, no flag spelunking.
+            runs persistent
+            <a href="https://github.com/vercel/eve" target="_blank" rel="noopener noreferrer" style="color:var(--teal)">Eve</a>
+            agents in a browser workspace. Work with files, review code,
+            and schedule tasks using your local models.
           </p>
 
           <div class="cta-row">
@@ -825,7 +825,7 @@
 </div>
               <div id="termMenuPane" role="menu" aria-label="locca actions">
                 <div class="line"><span class="dim">◆</span>  what next?</div>
-                <div class="line term-row" role="menuitem" data-action="pi" data-label="Pi       — coding agent (local)"></div>
+                <div class="line term-row" role="menuitem" data-action="agent" data-label="Agent    — open local workspace"></div>
                 <div class="line term-row" role="menuitem" data-action="switch" data-label="Switch   — swap server to a different model"></div>
                 <div class="line term-row" role="menuitem" data-action="download" data-label="Download — pull from HuggingFace"></div>
                 <div class="line term-row" role="menuitem" data-action="bench" data-label="Bench    — benchmark a model"></div>
@@ -833,24 +833,18 @@
                 <div class="line"><span class="dim">└</span></div>
                 <div class="line term-hint">  ↑↓ to move · Enter to run · click any item · Esc to go back</div>
               </div>
-              <div class="term-output line" data-action="pi" hidden>
-<span class="prompt">$</span> locca pi
-<span class="ok">●</span> starting llama-server (auto)…
-<span class="ok">✓</span> ready · :8080 · Qwen3.5-9B · ctx 131,072
+              <div class="term-output line" data-action="agent" hidden>
+<span class="prompt">$</span> locca agent qwen --workspace ~/project
+<span class="ok">●</span> starting llama-server…
+<span class="ok">✓</span> local model ready · :8080
+<span class="ok">✓</span> Eve agent service ready
 
-  <span class="dim">[pi]</span> coding agent · model: qwen3.5-9b
-  <span class="prompt">›</span> organise my files in this directory
-  <span class="dim">⠋ thinking… (warm cache, 142 tok/s)</span>
+  Browser workspace: <span class="ok">http://127.0.0.1:3210</span>
+  Conversations and recurring jobs are saved.
+  Shell commands wait for your approval.
 
-  I see 38 files — mostly screenshots, a few
-  PDFs, and some loose .zip archives. Plan:
+  <span class="dim">Stop the service: locca agent stop</span>
 
-    <span class="ok">✓</span> mkdir screenshots/ docs/ archives/
-    <span class="ok">✓</span> mv *.png *.jpg → screenshots/  (24)
-    <span class="ok">✓</span> mv *.pdf       → docs/         (7)
-    <span class="ok">✓</span> mv *.zip *.tar → archives/     (4)
-
-  Run it? <span class="sel"> y </span> / n
 <button class="term-back" type="button">← back to menu</button></div>
               <div class="term-output line" data-action="switch" hidden>
 <span class="dim">◆</span>  Switch to which model?
@@ -889,7 +883,7 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
 <span class="prompt">$</span> locca doctor
 <span class="ok">✓</span> hardware     AMD Strix Halo · Radeon 890M · 96 GB
 <span class="ok">✓</span> llama-server v0.4.1 (Vulkan, n_gpu_layers=999)
-<span class="ok">✓</span> pi           v0.71.2
+<span class="ok">✓</span> Eve          bundled with Locca
 <span class="ok">✓</span> server       :8080 · Qwen3.5-9B · 1 slot
 <span class="ok">✓</span> models dir   ~/models · 4 models · 21.3 GB
 <span class="dim">○</span> log size     342 KB
@@ -909,7 +903,7 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
         <h2 id="features-title">Defaults that respect your hardware.</h2>
         <p class="section-lede">
           Most local-LLM tools either bury llama.cpp under abstraction or
-          dump every flag in your lap. locca picks defaults that work.
+          dump every flag in your lap. locca agentcks defaults that work.
           When you want to override them, the flags are right there.
         </p>
 
@@ -963,7 +957,7 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
               <code translate="no">locca doctor</code> sweeps hardware, server state,
               and the last 64 KiB of log for known issues — outdated chat
               templates, OOMs, ctx truncation. <code translate="no">locca optimise</code>
-              hands the same data to pi and asks for concrete tweaks.
+              hands the same data to Eve and asks for concrete tweaks.
             </p>
           </div>
           <div class="feature">
@@ -1023,9 +1017,9 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
         <p class="eyebrow">Get going</p>
         <h2 id="install-title">Install.</h2>
         <p class="section-lede">
-          One command, then a wizard. locca picks a models folder with
+          One command, then a wizard. locca agentcks a models folder with
           you, fetches llama.cpp if it’s missing, downloads a starter
-          GGUF, and installs the pi coding agent.
+          GGUF, and includes the Eve agent runtime.
         </p>
 
         <div class="install-grid">
@@ -1040,7 +1034,7 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
             <div class="ln"><span class="c">#   2. installs llama.cpp if missing</span></div>
             <div class="ln"><span class="c">#   3. tunes port, ctx, threads, VRAM</span></div>
             <div class="ln"><span class="c">#   4. offers a starter GGUF download</span></div>
-            <div class="ln"><span class="c">#   5. installs the pi coding agent</span></div>
+            <div class="ln"><span class="c">#   5. includes the Eve agent runtime</span></div>
             <div class="ln">&nbsp;</div>
             <div class="ln"><span class="c"># re-run anytime: `locca setup`</span></div>
           </div>
@@ -1054,7 +1048,7 @@ median  pp <span class="ok">1851</span> t/s   tg <span class="ok">142</span> t/s
 3. Run: npm install -g @zeiq/locca
    If it fails with EACCES, configure an npm prefix in $HOME or use a Node version manager (nvm / fnm / mise). Don't sudo npm.
 4. Run: locca
-   The first-run wizard will pick a models dir, install llama.cpp (it auto-detects Vulkan / CUDA / HIP / Metal / CPU), tune port/ctx/threads, offer a starter GGUF download, and install the pi coding agent. Let it.
+   The first-run wizard will pick a models dir, install llama.cpp (it auto-detects Vulkan / CUDA / HIP / Metal / CPU), tune port/ctx/threads, offer a starter GGUF download, and start the Eve agent workspace. Let it.
 5. Run: locca doctor — report what it says.
 
 Hardware hints:
@@ -1101,13 +1095,13 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
         </p>
 
         <ul class="cmd-grid">
-          <li class="cmd-row"><code translate="no">locca pi</code><span>Launch the pi coding agent against your local server.</span></li>
+          <li class="cmd-row"><code translate="no">locca agent</code><span>Open the persistent browser workspace with a local model.</span></li>
           <li class="cmd-row"><code translate="no">locca serve</code><span>Start <code translate="no" style="font-family:var(--mono)">llama-server</code> with a model — detached, head-less <code translate="no" style="font-family:var(--mono)">--yes</code>, foreground <code translate="no" style="font-family:var(--mono)">-f</code>, or <code translate="no" style="font-family:var(--mono)">--idle-timeout</code> to free VRAM when idle.</span></li>
           <li class="cmd-row"><code translate="no">locca embed</code><span>Start a dedicated embedding server on its own port — head-less <code translate="no" style="font-family:var(--mono)">--yes</code> and <code translate="no" style="font-family:var(--mono)">--port</code>/<code translate="no" style="font-family:var(--mono)">--ctx</code>/<code translate="no" style="font-family:var(--mono)">--threads</code> overrides, like <code translate="no" style="font-family:var(--mono)">serve</code>.</span></li>
           <li class="cmd-row"><code translate="no">locca switch</code><span>Catalog-aware picker — installed models + curated catalog with fit hints.</span></li>
           <li class="cmd-row"><code translate="no">locca bench</code><span>Run llama-bench with a friendlier summary.</span></li>
           <li class="cmd-row"><code translate="no">locca doctor</code><span>Health check — hardware, server, log warnings, config sanity.</span></li>
-          <li class="cmd-row"><code translate="no">locca optimise</code><span>Have pi review the deployment and rank concrete tweaks.</span></li>
+          <li class="cmd-row"><code translate="no">locca optimise</code><span>Have Eve review the deployment and rank concrete tweaks.</span></li>
           <li class="cmd-row"><code translate="no">locca api</code><span>Print OpenAI-compatible connection info + LAN URLs.</span></li>
           <li class="cmd-row"><code translate="no">locca logs</code><span>Tail the server log (locca-spawned servers only).</span></li>
           <li class="cmd-row"><code translate="no">locca download</code><span>Pull a GGUF from HuggingFace into your models dir.</span></li>
@@ -1121,52 +1115,27 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
       </div>
     </section>
 
-    <!-- ============ PI CALLOUT ============ -->
-    <section aria-labelledby="pi-title">
+    <section aria-labelledby="agent-title">
       <div class="wrap">
         <div class="callout">
           <div>
-            <p class="eyebrow" style="margin-bottom:8px">Bonus</p>
-            <h2 id="pi-title">One command into the <a href="https://pi.dev" target="_blank" rel="noopener noreferrer" style="color:var(--magenta)">pi</a> coding agent.</h2>
-            <p>
-              <code translate="no">locca pi qwen</code> fuzzy-matches the first
-              <code translate="no">*qwen*.gguf</code> in your models dir, brings up the
-              server if it isn’t already running, and registers itself as a
-              custom OpenAI-compatible provider in
-              <code translate="no">~/.pi/agent/models.json</code>. Switch model, switch
-              brain — <code translate="no">locca switch gpt-oss-20b</code>.
-            </p>
+            <p class="eyebrow" style="margin-bottom:8px">Locca v2</p>
+            <h2 id="agent-title">A workspace you can come back to.</h2>
+            <p><code translate="no">locca agent qwen</code> starts your local model and opens a persistent browser workspace powered by Eve. Attach a folder, give it a task, and follow the work as it happens.</p>
           </div>
-          <div class="pi-mark" aria-hidden="true">π</div>
+          <div class="agent-mark" aria-hidden="true">L</div>
         </div>
-
-        <h3 class="sub-h">Where pi keeps its stuff.</h3>
-        <p class="sub-lede">
-          Once <code translate="no">locca pi</code> drops you into the agent,
-          these are the paths worth knowing. Global config lives under
-          <code translate="no">~/.pi/agent/</code>; per-project overrides go in
-          <code translate="no">.pi/</code> at your repo root.
-        </p>
-
+        <h3 class="sub-h">Your work stays on your machine.</h3>
+        <p class="sub-lede">Conversations survive browser disconnects and service restarts. File tools work in your selected folder. Host shell commands show their exact input and wait for your approval.</p>
         <ul class="cmd-grid">
-          <li class="cmd-row"><code translate="no">~/.pi/agent/settings.json</code><span>Model, theme, thinking level, retries, telemetry. Project overrides at <code translate="no" style="font-family:var(--mono)">.pi/settings.json</code>.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/models.json</code><span>Custom OpenAI-compatible providers. locca owns the <code translate="no" style="font-family:var(--mono)">locca</code> entry and rewrites it on every <code translate="no" style="font-family:var(--mono)">locca pi</code> — leave the rest alone.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/skills/</code><span>Drop in <a href="https://github.com/badlogic/pi-skills" target="_blank" rel="noopener" style="color:var(--teal)">pi-skills</a> packages — each one a folder with a <code translate="no" style="font-family:var(--mono)">SKILL.md</code>. Project skills also load from <code translate="no" style="font-family:var(--mono)">.pi/skills/</code> and ancestors up to the git root.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/AGENTS.md</code><span>Global instructions loaded at startup. Per-project <code translate="no" style="font-family:var(--mono)">AGENTS.md</code> files in cwd or any ancestor merge in too.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/SYSTEM.md</code><span>Replaces the default system prompt entirely. Use <code translate="no" style="font-family:var(--mono)">APPEND_SYSTEM.md</code> if you only want to tack things on.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/prompts/</code><span>Reusable prompt templates. Drop a <code translate="no" style="font-family:var(--mono)">foo.md</code> in here and run it mid-session with <code translate="no" style="font-family:var(--mono)">/foo</code>.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/extensions/</code><span>TypeScript modules registering custom tools, slash commands, and UI panels.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/keybindings.json</code><span>Override key bindings if the defaults clash with your terminal.</span></li>
-          <li class="cmd-row"><code translate="no">~/.pi/agent/sessions/</code><span>JSONL session logs grouped by working directory — handy for resuming or grepping a past chat.</span></li>
+          <li class="cmd-row"><code translate="no">locca agent</code><span>Open the browser workspace using your local model.</span></li>
+          <li class="cmd-row"><code translate="no">--workspace ~/project</code><span>Choose the folder for a new conversation.</span></li>
+          <li class="cmd-row"><code translate="no">locca agent status</code><span>Check the background agent service.</span></li>
+          <li class="cmd-row"><code translate="no">locca agent stop</code><span>Stop the service and retain saved conversations and jobs.</span></li>
+          <li class="cmd-row"><code translate="no">locca agent logs</code><span>Read the service log when something goes wrong.</span></li>
+          <li class="cmd-row"><code translate="no">~/.locca/agent/</code><span>Persistent workflow state, workspace attachments, and recurring jobs.</span></li>
         </ul>
-
-        <div class="code-block aside">
-          <button class="copy" data-copy="pi install git:https://github.com/badlogic/pi-skills" type="button">Copy</button>
-          <div class="h">tip <span class="dim-inline">— skills, AGENTS.md, and prompts hot-reload. Drop a file, run <code translate="no" style="font-family:var(--mono)">locca pi</code>, no restart needed.</span></div>
-          <div class="ln"><span class="p">$</span> pi install git:https://github.com/badlogic/pi-skills</div>
-          <div class="ln"><span class="c"># pulls a curated bundle into ~/.pi/agent/git/ and wires it</span></div>
-          <div class="ln"><span class="c"># into ~/.pi/agent/skills/. Browse the catalog at the repo above.</span></div>
-        </div>
+        <p class="sub-lede">Create recurring tasks in the browser. Each run becomes a saved conversation. Jobs run while the background service is running. Node.js 24 or newer is required; Eve ships with Locca.</p>
       </div>
     </section>
   </main>
@@ -1177,7 +1146,7 @@ Ask before anything destructive or anything needing sudo. If a step fails, show 
       <div class="footer-links">
         <a href="https://github.com/perminder-klair/locca" target="_blank" rel="noopener">github</a>
         <a href="https://www.npmjs.com/package/@zeiq/locca" target="_blank" rel="noopener">npm</a>
-        <a href="https://pi.dev" target="_blank" rel="noopener">pi.dev</a>
+        <a href="https://github.com/vercel/eve" target="_blank" rel="noopener">Eve</a>
       </div>
     </div>
   </footer>
